@@ -5,11 +5,14 @@
     <modelVersion>4.0.0</modelVersion>
 
     <parent>
-        <groupId>cl.duoc.pedidos360</groupId>
-        <artifactId>pedidos-backend</artifactId>
-        <version>0.0.1-SNAPSHOT</version>
+        <groupId>org.springframework.boot</groupId>
+        <artifactId>spring-boot-starter-parent</artifactId>
+        <version>3.3.13</version>
+        <relativePath/>
     </parent>
 
+    <groupId>cl.duoc.pedidos360</groupId>
+    <version>0.0.1-SNAPSHOT</version>
     <artifactId>ms-perfil</artifactId>
     <name>ms-perfil</name>
     <description>Microservicio de perfiles de Pedidos360</description>
