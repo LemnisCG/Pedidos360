@@ -32,6 +32,18 @@ Desde la carpeta `ms-perfil`:
 ./mvnw spring-boot:run
 ```
 
+Para desarrollo local, deja PostgreSQL y pgAdmin en Docker y ejecuta solamente la aplicación con Spring Boot:
+
+```bash
+# Desde pedidos-backend
+docker compose up -d postgres-perfil pgadmin
+
+# Desde ms-perfil
+./mvnw spring-boot:run
+```
+
+Con este flujo, los cambios Java se prueban reiniciando Spring Boot sin reconstruir la imagen Docker.
+
 Variables de conexión disponibles: `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`, `JPA_DDL_AUTO` y `SERVER_PORT`.
 
 ## Ejecución con Docker Compose
@@ -42,6 +54,8 @@ Docker Compose levanta PostgreSQL, pgAdmin y `ms-perfil` en una red privada. Cop
 cp .env.example .env
 docker compose up --build
 ```
+
+Este comando levanta todo: PostgreSQL, pgAdmin y `ms-perfil`.
 
 Servicios disponibles:
 
