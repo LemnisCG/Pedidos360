@@ -9,7 +9,7 @@ El objetivo del proyecto es construir una solución escalable y segura, estructu
 
 ## 🛠️ Tecnologías del Proyecto
 
-* **Backend:** Java 21, Spring Boot, Spring Security (OAuth2 Resource Server), Spring Data JPA.
+* **Backend:** Java 21, Spring Boot 3.3, Spring Data JPA, Hibernate 6 y PostgreSQL 16.
 * **IDaaS:** Azure Active Directory (Azure AD).
 * **Infraestructura Cloud (Planeada):** AWS EC2, AWS API Gateway, Base de datos Cloud.
 * **Frontend:** *En fase de evaluación por el equipo de desarrollo.*
@@ -23,16 +23,14 @@ La estructura del proyecto está organizada en directorios modulares:
 ```text
 Pedidos360/
 │
-├── 📁 pedidos360-backend/      # Microservicios / API REST en Spring Boot
-│   └── src/main/java/.../
-│       ├── config/              # Configuraciones generales (CORS, Beans, etc.)
-│       ├── security/            # Filtros BFF y validación JWT (Issuer, Audience, Firma)
-│       ├── controllers/         # Endpoints de la API REST
-│       ├── services/            # Lógica de negocio de la aplicación
-│       ├── repositories/       # Interfaces JPA para persistencia en BD Cloud
-│       ├── entities/            # Entidades del modelo de datos
-│       ├── dtos/                # Objetos de transferencia de datos (Request/Response)
-│       └── exceptions/          # Manejador global de excepciones y respuestas HTTP
+├── 📁 pedidos-backend/          # Agregador Maven de microservicios
+│   ├── pom.xml                  # Parent y módulos del backend
+│   └── 📁 ms-perfil/            # Microservicio de perfiles
+│       └── src/main/java/.../
+│           ├── interfaces/rest/ # Capa de presentación: API REST
+│           ├── application/     # Capa de aplicación: casos de uso
+│           ├── domain/model/    # Modelo de negocio
+│           └── infrastructure/  # Capa de datos: repositorios JPA
 │
 ├── 📁 pedidos360-frontend/     # Cliente Web (Pendiente de inicialización)
-└── 📁 pedidos360-docs/         # Documentación técnica, changelogs y diagramas
+└── 📁 pedidos-docs/            # Documentación técnica, changelogs y diagramas
