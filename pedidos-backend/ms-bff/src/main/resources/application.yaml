@@ -17,4 +17,4 @@ logging:
 
 microservicios:
   perfil:
-    url: ${MS_PERFIL_URL:http://localhost:8082}
+    url: ${MS_PERFIL_URL:http://localhost:8081}
