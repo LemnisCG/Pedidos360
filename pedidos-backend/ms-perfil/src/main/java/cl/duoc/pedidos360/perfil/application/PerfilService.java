@@ -22,8 +22,7 @@ public class PerfilService {
 
     public Perfil createPerfil(UUID idProvider, String email, String nombre,
                                String apellido, String direccionEnvio, String telefono) {
-
-        Perfil newPerfil = new Perfil(
+        Perfil nuevoPerfil = new Perfil(
                 idProvider,
                 email,
                 nombre,
@@ -31,6 +30,6 @@ public class PerfilService {
                 direccionEnvio,
                 telefono
         );
-        return perfilRepository.save(newPerfil);
+        return perfilRepository.save(nuevoPerfil);
     }
 }
