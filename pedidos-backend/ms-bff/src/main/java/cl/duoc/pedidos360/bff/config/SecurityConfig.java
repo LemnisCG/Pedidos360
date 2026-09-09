@@ -1,4 +1,4 @@
-package com.pedidos360.bff.config;
+package cl.duoc.pedidos360.bff.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
