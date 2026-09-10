@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
+import java.lang.String;
 import java.util.Map;
 
 @Service
@@ -28,5 +29,12 @@ public class PerfilClientService {
                 .body(requestBody)
                 .retrieve()
                 .body(Map.class); // Mapea la respuesta de ms-perfil a un Map generico
+    }
+
+    public Map<String, Object> obtenerPerfilPorId(String oid) {
+        return restClient.get()
+            .uri("/api/v1/perfiles/{oid}", oid)
+            .retrieve()
+            .body(Map.class);
     }
 }
