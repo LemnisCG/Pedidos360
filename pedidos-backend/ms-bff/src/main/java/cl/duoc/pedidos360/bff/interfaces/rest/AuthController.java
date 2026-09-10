@@ -4,6 +4,8 @@ package cl.duoc.pedidos360.bff.controllers;
 import cl.duoc.pedidos360.bff.application.PerfilClientService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.access.prepost.PreAuthorize;
+
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -11,7 +13,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/api/v1/auth")
 public class AuthController {
 
     private final PerfilClientService perfilClientService;
@@ -33,5 +35,14 @@ public class AuthController {
         // 2. Delegar la llamada HTTP a ms-perfil
         // Esto enviará el payload y devolverá la respuesta final al frontend
         return perfilClientService.sincronizarPerfil(oid, email, nombre);
+    }
+
+
+    @PreAuthorize("hasAnyRole('Cliente', 'Administrador')")
+    @GetMapping("/perfil")
+    public Map<String, Object> obtenerPerfilPorId(@AuthenticationPrincipal Jwt jwt) {
+
+        String oid = jwt.getClaimAsString("oid");
+        return perfilClientService.obtenerPerfilPorId(oid);
     }
 }
