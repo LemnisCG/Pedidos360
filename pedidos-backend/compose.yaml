@@ -1,0 +1,39 @@
+services:
+  postgres-perfil:
+    image: postgres:16-alpine
+    container_name: pedidos360-postgres-perfil
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PERFIL_DB_NAME:-pedidos360_perfil}
+      POSTGRES_USER: ${PERFIL_DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${PERFIL_DB_PASSWORD:?Set PERFIL_DB_PASSWORD in .env}
+    ports:
+      - "${PERFIL_DB_PORT:-5433}:5432"
+    volumes:
+      - perfil_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  ms-perfil:
+    build:
+      context: ./ms-perfil
+      dockerfile: Dockerfile
+    container_name: pedidos360-ms-perfil
+    restart: unless-stopped
+    environment:
+      SERVER_PORT: ${PERFIL_PORT:-8081}
+      DB_URL: jdbc:postgresql://postgres-perfil:5432/${PERFIL_DB_NAME:-pedidos360_perfil}
+      DB_USERNAME: ${PERFIL_DB_USER:-postgres}
+      DB_PASSWORD: ${PERFIL_DB_PASSWORD:?Set PERFIL_DB_PASSWORD in .env}
+      JPA_DDL_AUTO: ${JPA_DDL_AUTO:-validate}
+    ports:
+      - "${PERFIL_PORT:-8081}:8081"
+    depends_on:
+      postgres-perfil:
+        condition: service_healthy
+
+volumes:
+  perfil_postgres_data:
