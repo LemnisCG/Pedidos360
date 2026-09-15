@@ -1,7 +1,7 @@
 import { Component, OnInit, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
-import { PublicClientApplication, BrowserCacheLocation } from '@azure/msal-browser';
+import { PublicClientApplication, BrowserCacheLocation, ProtocolMode } from '@azure/msal-browser';
 
 const msalInstance = new PublicClientApplication({
   auth: {
@@ -12,6 +12,9 @@ const msalInstance = new PublicClientApplication({
   },
   cache: {
     cacheLocation: BrowserCacheLocation.LocalStorage
+  },
+  system: {
+    protocolMode: ProtocolMode.OIDC
   }
 });
 
@@ -28,10 +31,13 @@ const msalInstance = new PublicClientApplication({
       <p *ngIf="cargando"><strong>Estado:</strong> Procesando autenticación...</p>
 
       <!-- Vista sin autenticar -->
-      <div *ngIf="!cargando && !isLoggedIn">
+      <div *ngIf="!cargando && !isLoggedIn" style="display: flex; gap: 10px;">
         <p>No has iniciado sesión.</p>
         <button (click)="login()" style="padding: 8px 16px; cursor: pointer;">
-          Iniciar Sesión / Registrarse
+          Iniciar Sesión
+        </button>
+        <button (click)="registrar()" style="padding: 8px 16px; cursor: pointer; background: #0078d4; color: white; border: none; border-radius: 4px;">
+          Crear Cuenta
         </button>
       </div>
 
@@ -67,18 +73,18 @@ export class App implements OnInit {
   constructor(
     private http: HttpClient,
     private cdr: ChangeDetectorRef
-  ) {}
+  ) { }
 
   async ngOnInit() {
     try {
       await msalInstance.initialize();
       // Procesa el código o token que viene de Azure en la URL de retorno
       const response = await msalInstance.handleRedirectPromise();
-      
+
       if (response?.account) {
         msalInstance.setActiveAccount(response.account);
       }
-      
+
       this.evaluarSesion();
     } catch (error) {
       console.error('Error durante la inicialización de MSAL:', error);
@@ -106,6 +112,13 @@ export class App implements OnInit {
     });
   }
 
+  registrar() {
+    msalInstance.loginRedirect({
+      scopes: ['api://6314fdda-9417-40f2-8ebe-9cc6ef7cd4ed/BFF.Access'],
+      prompt: 'create' // Le indica a Azure CIAM que abra directamente la pantalla de crear cuenta
+    });
+  }
+
   logout() {
     msalInstance.logoutRedirect({
       postLogoutRedirectUri: 'http://localhost:4200'
@@ -124,7 +137,10 @@ export class App implements OnInit {
         'Authorization': `Bearer ${authResult.accessToken}`
       });
 
-      this.http.get('http://localhost:8080/api/auth/login', { headers }).subscribe({
+      console.log('Token JWT enviado al backend:', authResult.accessToken);
+
+      // El endpoint correcto configurado en tu Spring Boot (AuthController) es /api/v1/auth/login
+      this.http.get('http://localhost:8080/api/v1/auth/login', { headers }).subscribe({
         next: (data) => {
           this.backendResponse = data;
           this.cdr.detectChanges();
