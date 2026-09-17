@@ -1,0 +1,23 @@
+.order-page { width: min(1420px, calc(100% - 48px)); margin: 0 auto; padding: 32px 0 60px; }
+.order-page > h1 { margin: 0 0 30px; font-size: 2.7rem; font-weight: 600; }
+.summary-card { border: 1px solid #d7dadd; border-radius: 9px; padding: 28px 34px; display: grid; grid-template-columns: 1.4fr 1fr 1fr; gap: 34px; }
+.summary-card h2 { margin: 0 0 14px; font-size: 1.35rem; }
+.summary-card p { margin: 8px 0; font-size: 1rem; }
+.amount { font-weight: 700; font-size: 1.2rem !important; }
+
+.shipping-summary { margin-top: 18px; border: 1px solid #d7dadd; border-radius: 9px; padding: 18px 22px; display: flex; gap: 8px; flex-wrap: wrap; background: #fbfbfc; }
+
+.items-card { margin-top: 22px; border: 1px solid #d7dadd; border-radius: 9px; padding: 24px 34px; }
+.items-card article { display: grid; grid-template-columns: 90px 1fr; gap: 22px; align-items: center; padding: 14px 0 24px; }
+.items-card article + article { border-top: 1px solid #eceeef; padding-top: 24px; }
+.thumb { width: 78px; height: 108px; }
+.items-card h2 { margin: 0 0 12px; color: #0d6efd; font-size: 1.4rem; }
+.items-card p { margin: 6px 0; }
+.empty { border: 1px solid #d7dadd; border-radius: 9px; padding: 28px; color: #6c757d; }
+.empty a { color: #0d6efd; }
+.loading { color: #6c757d; }
+
+@media (max-width: 800px) {
+  .order-page { width: calc(100% - 28px); }
+  .summary-card { grid-template-columns: 1fr; gap: 10px; }
+}

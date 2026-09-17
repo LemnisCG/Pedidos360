@@ -1,0 +1,37 @@
+.checkout-page { width: min(1420px, calc(100% - 48px)); margin: 0 auto; padding: 40px 0 60px; }
+.checkout-page > h1 { margin: 0 0 34px; font-size: 2.7rem; font-weight: 600; }
+.checkout-layout { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(320px, .7fr); gap: 40px; align-items: start; }
+.payment-column > h2, aside > h2 { margin: 0 0 15px; font-size: 1.75rem; font-weight: 600; }
+.payment-card, .shipping-card { border: 1px solid #d8dbde; border-radius: 8px; padding: 24px; background: #fff; }
+.card-label { color: #0d6efd; display: flex; gap: 10px; align-items: center; margin-bottom: 22px; }
+.form-grid { display: grid; grid-template-columns: 1.4fr .7fr .7fr; gap: 18px; }
+label { display: flex; flex-direction: column; gap: 8px; color: #343a40; }
+.card-number { grid-column: 1; }
+input, select { height: 51px; border: 1px solid #ced4da; border-radius: 7px; padding: 0 14px; color: #212529; background: #fff; outline: none; }
+input:focus, select:focus { border-color: #86b7fe; box-shadow: 0 0 0 3px rgba(13,110,253,.14); }
+.shipping-card { margin-top: 18px; }
+.shipping-card h3 { margin: 0 0 17px; font-size: 1.2rem; font-weight: 650; }
+.shipping-card p { margin: 12px 0 0; color: #6c757d; font-size: .9rem; }
+.form-error { margin: 14px 0 -5px; padding: 11px 13px; color: #842029; background: #f8d7da; border: 1px solid #f5c2c7; border-radius: 7px; }
+.place-order { width: 100%; margin-top: 24px; height: 58px; border: 0; border-radius: 7px; background: #0d6efd; color: #fff; font-size: 1.15rem; font-weight: 600; cursor: pointer; }
+.place-order:hover { background: #0b5ed7; }
+.place-order:disabled { opacity: .55; cursor: wait; }
+.hint { margin: 12px 0 0; color: #6c757d; font-size: .82rem; line-height: 1.45; }
+aside { padding-top: 2px; }
+aside > h2 { color: #5a5a5a; font-size: 2rem; }
+aside hr { border: 0; border-top: 1px solid #ced4da; margin: 18px 0; }
+aside article { display: grid; grid-template-columns: 74px 1fr; gap: 16px; align-items: center; margin: 14px 0; }
+.thumb { width: 72px; height: 92px; }
+aside article strong { display: block; font-size: 1.15rem; }
+aside article small { display: block; margin-top: 5px; font-size: 1rem; }
+.total { display: flex; justify-content: space-between; align-items: center; font-size: 1.7rem; font-weight: 600; }
+
+@media (max-width: 900px) {
+  .checkout-layout { grid-template-columns: 1fr; }
+  aside { max-width: 620px; }
+}
+@media (max-width: 650px) {
+  .checkout-page { width: calc(100% - 28px); padding-top: 28px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .card-number { grid-column: auto; }
+}

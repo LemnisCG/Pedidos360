@@ -1,0 +1,54 @@
+<header class="site-header">
+  <div class="header-inner">
+    <a class="brand" routerLink="/">Pedidos360</a>
+
+    <nav aria-label="Navegación principal">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Tienda</a>
+      <a routerLink="/order-details/demo" routerLinkActive="active">Pedidos</a>
+    </nav>
+
+    <div class="actions">
+      <ng-container *ngIf="auth.account$ | async as account; else guest">
+        <!--
+          Usamos <details>/<summary> para el menú del usuario.
+          Es un desplegable nativo del navegador, por lo que no depende de
+          estados manuales ni listeners globales y resulta más confiable.
+        -->
+        <details class="user-menu">
+          <summary class="user-trigger">
+            <span class="avatar">{{ (account.name || account.username || 'U').charAt(0) }}</span>
+            <span class="user-name">{{ account.name || account.username }}</span>
+            <span class="chevron" aria-hidden="true">⌄</span>
+          </summary>
+
+          <div class="user-popover">
+            <div class="popover-row status-row">
+              <strong>Estado:</strong>
+              <span>Sesión Activa</span>
+              <span class="status-check" aria-label="Sesión activa">✓</span>
+            </div>
+            <div class="popover-row user-row">
+              <strong>Usuario:</strong>
+              <span>
+                {{ account.name || account.username }}
+                <small>({{ auth.email }})</small>
+              </span>
+            </div>
+          </div>
+        </details>
+
+        <button class="link-btn" type="button" (click)="auth.logout()">Salir</button>
+      </ng-container>
+
+      <ng-template #guest>
+        <button class="link-btn" type="button" (click)="auth.login()">Iniciar sesión</button>
+        <button class="signup" type="button" (click)="auth.register()">Crear cuenta</button>
+      </ng-template>
+
+      <a class="cart" routerLink="/cart" aria-label="Carrito">
+        <span class="cart-icon">🛍</span>
+        <b>{{ cart.count() }}</b>
+      </a>
+    </div>
+  </div>
+</header>

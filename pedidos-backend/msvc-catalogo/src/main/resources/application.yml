@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/catalogo_db
     username: postgres
-    password: Redimi2one2025*
+    password: ${DB_PASSWORD:postgres}
 
   jpa:
     hibernate:
@@ -17,4 +17,4 @@ spring:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 
 server:
-  port: 8082
+  port: 8086

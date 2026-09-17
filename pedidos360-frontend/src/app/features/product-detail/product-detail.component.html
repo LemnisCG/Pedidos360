@@ -1,0 +1,19 @@
+<section class="detail-page" *ngIf="product() as p">
+  <div class="product-image image-slot">
+    <img *ngIf="p.imagenUrl" [src]="p.imagenUrl" [alt]="p.nombre" />
+  </div>
+
+  <div class="product-info">
+    <h1>{{ p.nombre }}</h1>
+    <p class="description">{{ p.descripcion }}</p>
+
+    <div class="price">{{ p.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</div>
+    <button type="button" (click)="add()">Agregar al carrito</button>
+
+    <p class="release">Fecha de lanzamiento: {{ p.fechaLanzamiento | date:'mediumDate':'':'es-CL' }}</p>
+    <p class="stock">Stock disponible: {{ p.stock }}</p>
+  </div>
+</section>
+
+<p class="state" *ngIf="loading()">Cargando producto...</p>
+<p class="state" *ngIf="!loading() && !product()">No fue posible encontrar este producto.</p>
