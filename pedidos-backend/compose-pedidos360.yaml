@@ -1,0 +1,38 @@
+services:
+  postgres-producto:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: producto_db, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+    ports: ["5434:5432"]
+  postgres-orden:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: orden_db, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+    ports: ["5435:5432"]
+  postgres-pago:
+    image: postgres:16-alpine
+    environment: { POSTGRES_DB: pago_db, POSTGRES_USER: postgres, POSTGRES_PASSWORD: postgres }
+    ports: ["5436:5432"]
+  msvc-producto:
+    build: ./msvc-producto
+    environment: { DB_URL: jdbc:postgresql://postgres-producto:5432/producto_db, DB_USERNAME: postgres, DB_PASSWORD: postgres }
+    ports: ["8082:8082"]
+    depends_on: [postgres-producto]
+  msvc-orden:
+    build: ./msvc-orden
+    environment:
+      DB_URL: jdbc:postgresql://postgres-orden:5432/orden_db
+      DB_USERNAME: postgres
+      DB_PASSWORD: postgres
+      PRODUCTO_URL: http://msvc-producto:8082
+      MAIL_ENABLED: ${MAIL_ENABLED:-false}
+      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
+      MAIL_PORT: ${MAIL_PORT:-587}
+      MAIL_USERNAME: ${MAIL_USERNAME:-}
+      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
+      MAIL_FROM: ${MAIL_FROM:-no-reply@pedidos360.local}
+    ports: ["8084:8084"]
+    depends_on: [postgres-orden, msvc-producto]
+  msvc-pago:
+    build: ./msvc-pago
+    environment: { DB_URL: jdbc:postgresql://postgres-pago:5432/pago_db, DB_USERNAME: postgres, DB_PASSWORD: postgres }
+    ports: ["8085:8085"]
+    depends_on: [postgres-pago]

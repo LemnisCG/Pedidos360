@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/carrito_db
     username: postgres
-    password: Redimi2one2025*
+    password: ${DB_PASSWORD:postgres}
 
   jpa:
     hibernate:

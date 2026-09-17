@@ -1,0 +1,38 @@
+<section class="store-page">
+  <div class="search-row">
+    <input
+      type="search"
+      [value]="search()"
+      (input)="updateSearch($event)"
+      (keyup.enter)="applySearch()"
+      placeholder="Buscar en la tienda"
+      aria-label="Buscar producto"
+    />
+    <button type="button" (click)="applySearch()">Buscar</button>
+  </div>
+
+  <p class="loading" *ngIf="loading()">Cargando productos...</p>
+
+  <div class="product-grid" *ngIf="!loading()">
+    <a
+      class="product-card"
+      *ngFor="let p of filtered(); let index = index"
+      [class.center-last-row-start]="!search().trim() && filtered().length % 5 === 3 && index === filtered().length - 3"
+      [routerLink]="['/game', p.id]"
+    >
+      <!-- La portada proviene de imagenUrl, entregada por msvc-producto. -->
+      <div class="product-image image-slot">
+        <img *ngIf="p.imagenUrl" [src]="p.imagenUrl" [alt]="p.nombre" />
+      </div>
+
+      <div class="product-body">
+        <h2>{{ p.nombre }}</h2>
+        <p>{{ p.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</p>
+      </div>
+    </a>
+  </div>
+
+  <div class="empty" *ngIf="!loading() && !filtered().length">
+    No se encontraron productos para “{{ search() }}”.
+  </div>
+</section>
