@@ -1,0 +1,22 @@
+.site-footer {
+  margin-top: auto;
+  border-top: 1px solid #e1e4e8;
+  background: #f8f9fa;
+  color: #6c757d;
+}
+.footer-inner {
+  width: min(1420px, calc(100% - 48px));
+  min-height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  font-size: .92rem;
+}
+.footer-inner nav { display: flex; gap: 18px; align-items: center; }
+.footer-inner a { color: #495057; text-decoration: none; }
+.footer-inner a:hover { color: #0d6efd; }
+@media (max-width: 620px) {
+  .footer-inner { width: calc(100% - 28px); min-height: 86px; flex-direction: column; justify-content: center; gap: 8px; }
+}

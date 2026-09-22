@@ -1,0 +1,13 @@
+spring:
+  application:
+    name: msvc-producto
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/producto_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+server:
+  port: ${SERVER_PORT:8082}

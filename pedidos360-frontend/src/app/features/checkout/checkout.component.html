@@ -1,0 +1,84 @@
+<section class="checkout-page">
+  <h1>Checkout</h1>
+
+  <div class="checkout-layout">
+    <div class="payment-column">
+      <h2>Pago</h2>
+
+      <div class="payment-card">
+        <div class="card-label">▣ <strong>Tarjeta</strong></div>
+        <div class="form-grid">
+          <label class="card-number">
+            Número de tarjeta
+            <input [(ngModel)]="card" placeholder="1234 1234 1234 1234" />
+          </label>
+          <label>
+            Fecha de expiración
+            <input [(ngModel)]="exp" placeholder="MM / AA" />
+          </label>
+          <label>
+            Código de seguridad
+            <input [(ngModel)]="cvc" placeholder="CVC" />
+          </label>
+          <label>
+            País
+            <select [(ngModel)]="country">
+              <option>Chile</option>
+              <option>Bolivia</option>
+              <option>Argentina</option>
+              <option>Perú</option>
+            </select>
+          </label>
+          <label>
+            Código postal
+            <input [(ngModel)]="zip" placeholder="8320000" />
+          </label>
+        </div>
+      </div>
+
+      <!-- Dirección solicitada para la entrega. Se guarda junto con la orden. -->
+      <div class="shipping-card">
+        <h3>Dirección de envío</h3>
+        <label>
+          Dirección completa
+          <input
+            [(ngModel)]="direccionEnvio"
+            placeholder="Ej.: Av. Providencia 1234, Depto. 506, Providencia, Santiago"
+            autocomplete="street-address"
+          />
+        </label>
+        <p *ngIf="auth.account$ | async as account">
+          La confirmación se enviará a <strong>{{ auth.email }}</strong>.
+        </p>
+      </div>
+
+      <p class="form-error" *ngIf="errorMessage">{{ errorMessage }}</p>
+
+      <button class="place-order" type="button" (click)="place()" [disabled]="processing">
+        {{ processing ? 'Procesando pago...' : 'Realizar pago' }}
+      </button>
+      <p class="hint">
+        Demo académica: el pago no cobra una tarjeta real. El correo de confirmación sí puede enviarse realmente cuando SMTP está configurado en msvc-orden.
+      </p>
+    </div>
+
+    <aside>
+      <h2>Resumen del pedido</h2>
+      <hr />
+      <article *ngFor="let i of cart.items$ | async">
+        <div class="thumb image-slot">
+          <img *ngIf="i.product.imagenUrl" [src]="i.product.imagenUrl" [alt]="i.product.nombre" />
+        </div>
+        <div>
+          <strong>{{ i.product.nombre }}</strong>
+          <small>{{ i.product.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }} × {{ i.quantity }}</small>
+        </div>
+      </article>
+      <hr />
+      <div class="total">
+        <span>Total</span>
+        <strong>{{ cart.total() | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+      </div>
+    </aside>
+  </div>
+</section>

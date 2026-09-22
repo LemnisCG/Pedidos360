@@ -1,0 +1,54 @@
+.cart-page { width: min(1420px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 60px; }
+.cart-page > h1 { margin: 0 0 36px; font-size: 2.65rem; font-weight: 600; }
+.cart-layout { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 36px; align-items: start; }
+.cart-items { display: flex; flex-direction: column; gap: 30px; }
+article {
+  min-height: 220px;
+  border: 1px solid #d7dadd;
+  border-radius: 10px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: 140px minmax(180px, 1fr) 140px 170px 48px;
+  gap: 24px;
+  align-items: center;
+  background: #fff;
+}
+.thumb { width: 120px; height: 170px; border-radius: 0; }
+article h2 { margin: 0; font-size: 1.65rem; font-weight: 500; }
+article strong { font-size: 1.35rem; font-weight: 500; }
+article select { height: 48px; border: 1px solid #ced4da; border-radius: 8px; background: #fff; padding: 0 14px; }
+.remove { border: 0; background: transparent; color: #dc3545; font-size: 1.55rem; cursor: pointer; }
+aside { padding: 0 8px; }
+aside h2 { margin: 0 0 18px; font-size: 2rem; color: #5a5a5a; }
+aside hr { border: 0; border-top: 1px solid #ced4da; margin: 0 0 20px; }
+.total-row { display: flex; justify-content: space-between; align-items: center; font-size: 1.55rem; font-weight: 600; }
+aside a {
+  display: block;
+  margin-top: 18px;
+  padding: 15px;
+  border-radius: 7px;
+  background: #0d6efd;
+  color: #fff;
+  text-decoration: none;
+  text-align: center;
+  font-size: 1.15rem;
+  font-weight: 600;
+}
+aside a:hover { background: #0b5ed7; }
+.disabled { pointer-events: none; opacity: .5; }
+.empty { border: 1px solid #d7dadd; border-radius: 10px; padding: 30px; color: #6c757d; }
+.empty a { color: #0d6efd; }
+
+@media (max-width: 1050px) {
+  .cart-layout { grid-template-columns: 1fr; }
+  aside { max-width: 480px; width: 100%; }
+  article { grid-template-columns: 110px 1fr 120px; }
+  article select { grid-column: 2; }
+  .remove { grid-column: 3; }
+}
+@media (max-width: 620px) {
+  .cart-page { width: calc(100% - 28px); padding-top: 28px; }
+  article { grid-template-columns: 84px 1fr; padding: 16px; gap: 14px; }
+  .thumb { width: 76px; height: 106px; }
+  article strong, article select, .remove { grid-column: 2; }
+}

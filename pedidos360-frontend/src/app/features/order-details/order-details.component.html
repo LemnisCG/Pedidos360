@@ -1,0 +1,48 @@
+<section class="order-page">
+  <h1>Detalle del pedido</h1>
+
+  <p class="loading" *ngIf="loading()">Cargando pedido...</p>
+
+  <ng-container *ngIf="order() as o; else noOrder">
+    <div class="summary-card">
+      <div>
+        <h2>Resumen del pedido</h2>
+        <p><strong>Número de pedido:</strong> {{ o.numeroOrden }}</p>
+        <p><strong>Fecha:</strong> {{ o.fecha | date:'longDate':'':'es-CL' }}</p>
+        <p><strong>Estado:</strong> {{ o.estado }}</p>
+      </div>
+      <div>
+        <h2>Método de pago</h2>
+        <p>{{ o.metodoPago }}</p>
+        <p *ngIf="o.clienteEmail"><strong>Correo:</strong> {{ o.clienteEmail }}</p>
+      </div>
+      <div>
+        <h2>Monto total</h2>
+        <p class="amount">{{ o.total | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</p>
+      </div>
+    </div>
+
+    <div class="shipping-summary" *ngIf="o.direccionEnvio">
+      <strong>Dirección de envío:</strong>
+      <span>{{ o.direccionEnvio }}</span>
+    </div>
+
+    <div class="items-card">
+      <article *ngFor="let i of o.items">
+        <div class="thumb image-slot"><img *ngIf="i.imagenUrl" [src]="i.imagenUrl" [alt]="i.nombre" /></div>
+        <div>
+          <h2>{{ i.nombre }}</h2>
+          <p><strong>Cantidad:</strong> {{ i.cantidad }}</p>
+          <p><strong>Precio:</strong> {{ i.precioUnitario | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }} c/u</p>
+          <p *ngIf="i.codigoJuego">Código de juego: <strong>{{ i.codigoJuego }}</strong></p>
+        </div>
+      </article>
+    </div>
+  </ng-container>
+
+  <ng-template #noOrder>
+    <div class="empty" *ngIf="!loading()">
+      Aún no tienes un pedido seleccionado. <a routerLink="/">Volver a la tienda</a>
+    </div>
+  </ng-template>
+</section>

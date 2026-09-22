@@ -1,0 +1,30 @@
+<section class="cart-page">
+  <h1>Mi Carrito</h1>
+
+  <div class="cart-layout" *ngIf="cart.items$ | async as items">
+    <div class="cart-items">
+      <div class="empty" *ngIf="!items.length">
+        Tu carrito está vacío. <a routerLink="/">Volver a la tienda</a>
+      </div>
+
+      <article *ngFor="let item of items">
+        <div class="thumb image-slot">
+          <img *ngIf="item.product.imagenUrl" [src]="item.product.imagenUrl" [alt]="item.product.nombre" />
+        </div>
+        <h2>{{ item.product.nombre }}</h2>
+        <strong>{{ item.product.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+        <select [value]="item.quantity" (change)="cart.update(item.product.id, +$any($event.target).value)" aria-label="Cantidad">
+          <option *ngFor="let q of [1,2,3,4,5]" [value]="q">{{ q }}</option>
+        </select>
+        <button class="remove" type="button" (click)="cart.remove(item.product.id)" aria-label="Eliminar">🗑</button>
+      </article>
+    </div>
+
+    <aside>
+      <h2>Resumen</h2>
+      <hr />
+      <div class="total-row"><span>Total</span><strong>{{ cart.total() | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong></div>
+      <a [class.disabled]="!items.length" routerLink="/checkout">Continuar al pago</a>
+    </aside>
+  </div>
+</section>

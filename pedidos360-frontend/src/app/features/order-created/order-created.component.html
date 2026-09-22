@@ -1,0 +1,24 @@
+<section class="success-page" *ngIf="order() as o">
+  <h1>Pedido creado correctamente</h1>
+  <p>Tu número de pedido es: <strong>{{ o.numeroOrden }}</strong></p>
+
+  <div class="email-status success" *ngIf="o.confirmacionEmailEnviada; else pendingEmail">
+    <strong>Confirmación enviada</strong>
+    <span>Enviamos la confirmación del pago a {{ o.clienteEmail }}.</span>
+  </div>
+
+  <ng-template #pendingEmail>
+    <div class="email-status pending">
+      <strong>Pedido registrado</strong>
+      <span>
+        El correo todavía no fue enviado. Para habilitar el envío real debes configurar SMTP en <code>msvc-orden</code>.
+      </span>
+    </div>
+  </ng-template>
+
+  <a [routerLink]="['/order-details', o.id]">Ver detalle del pedido</a>
+
+  <h2>Códigos de juegos</h2>
+  <p>Los códigos digitales están disponibles en el detalle del pedido.</p>
+</section>
+<p class="state" *ngIf="loading()">Cargando pedido...</p>

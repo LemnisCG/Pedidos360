@@ -1,0 +1,42 @@
+spring:
+  application:
+    name: msvc-orden
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/orden_db}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+  # SMTP usado únicamente para enviar la confirmación del pedido al correo
+  # que viene desde la sesión de Microsoft Entra.
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
+
+pedidos360:
+  mail:
+    enabled: ${MAIL_ENABLED:false}
+    from: ${MAIL_FROM:no-reply@pedidos360.local}
+
+server:
+  port: ${SERVER_PORT:8084}
+
+
+# Dirección del microservicio Producto. En Docker se inyecta PRODUCTO_URL.
+services:
+  producto:
+    url: ${PRODUCTO_URL:http://localhost:8082}

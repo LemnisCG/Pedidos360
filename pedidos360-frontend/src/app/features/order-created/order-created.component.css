@@ -1,0 +1,10 @@
+.success-page, .state { width: min(1420px, calc(100% - 48px)); margin: 0 auto; padding: 42px 0 70px; }
+.success-page h1 { margin: 0 0 14px; font-size: 2.5rem; font-weight: 600; }
+.success-page p { font-size: 1.08rem; }
+.email-status { max-width: 760px; margin: 22px 0 4px; padding: 15px 17px; border-radius: 8px; display: flex; flex-direction: column; gap: 5px; }
+.email-status.success { color: #0f5132; background: #d1e7dd; border: 1px solid #badbcc; }
+.email-status.pending { color: #664d03; background: #fff3cd; border: 1px solid #ffecb5; }
+.email-status code { font-size: .95em; }
+.success-page > a { display: inline-block; margin: 20px 0 36px; color: #0d6efd; font-size: 1.12rem; }
+.success-page h2 { margin: 0 0 14px; font-size: 2rem; font-weight: 600; }
+.state { color: #6c757d; }
