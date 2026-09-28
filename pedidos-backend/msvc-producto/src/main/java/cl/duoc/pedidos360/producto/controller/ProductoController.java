@@ -1,61 +1,45 @@
 package cl.duoc.pedidos360.producto.controller;
 
+import cl.duoc.pedidos360.producto.dto.StockRequest;
 import cl.duoc.pedidos360.producto.model.Producto;
 import cl.duoc.pedidos360.producto.service.ProductoService;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.*;
-import org.springframework.web.server.ResponseStatusException;
+import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/** Endpoints públicos de lectura y endpoint interno para el descuento de stock. */
 @RestController
-@RequestMapping("/api/productos")
-@CrossOrigin(origins = "http://localhost:4200")
 public class ProductoController {
+
     private final ProductoService service;
 
     public ProductoController(ProductoService service) {
         this.service = service;
     }
 
-    @GetMapping
-    public List<Producto> listar() {
-        return service.listar();
+    @GetMapping("/api/productos")
+    public List<Producto> all() {
+        return service.all();
     }
 
-    @GetMapping("/{id}")
-    public Producto buscar(@PathVariable Long id) {
-        return service.buscar(id);
+    @GetMapping("/api/productos/{id}")
+    public Producto one(@PathVariable Long id) {
+        return service.one(id);
     }
 
-    @PostMapping
-    public Producto crear(@RequestBody Producto p) {
-        p.setId(null);
-        return service.guardar(p);
-    }
-
-    @PutMapping("/{id}")
-    public Producto actualizar(@PathVariable Long id, @RequestBody Producto p) {
-        return service.actualizar(id, p);
-    }
-
-    @DeleteMapping("/{id}")
-    public void eliminar(@PathVariable Long id) {
-        service.eliminar(id);
-    }
-
-    /*
-     * Endpoint interno usado por msvc-orden al confirmar una compra.
-     * Ejemplo: [{"productoId": 8, "cantidad": 3}]
+    /**
+     * Solo se invoca dentro de la red Docker desde msvc-pago.
+     * api-gateway no publica rutas /internal/**.
      */
-    @PostMapping("/descontar-stock")
-    public List<Producto> descontarStock(@RequestBody List<ProductoService.StockItem> items) {
-        try {
-            return service.descontarStock(items);
-        } catch (IllegalStateException e) {
-            throw new ResponseStatusException(HttpStatus.CONFLICT, e.getMessage(), e);
-        } catch (IllegalArgumentException e) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, e.getMessage(), e);
-        }
+    @PostMapping("/internal/productos/descontar-stock")
+    public ResponseEntity<Void> descontar(@Valid @RequestBody List<StockRequest> items) {
+        service.descontar(items);
+        return ResponseEntity.noContent().build();
     }
 }

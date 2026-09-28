@@ -9,13 +9,13 @@ import org.springframework.data.repository.query.Param;
 
 import java.util.Optional;
 
+/** Repositorio dueño del catálogo comercial y del inventario físico/digital. */
 public interface ProductoRepository extends JpaRepository<Producto, Long> {
 
-    /*
-     * Bloquea la fila del producto durante la compra para evitar que dos
-     * pedidos descuenten el mismo stock al mismo tiempo.
-     */
+    Optional<Producto> findByNombre(String nombre);
+
+    /** Bloquea la fila durante el checkout para evitar sobreventa concurrente. */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Producto p where p.id = :id")
-    Optional<Producto> buscarParaActualizar(@Param("id") Long id);
+    Optional<Producto> findByIdForUpdate(@Param("id") Long id);
 }

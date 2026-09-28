@@ -1,59 +1,54 @@
-# Pedidos360Frontend
+<div align="center">
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.1.7.
+# 🎮 Pedidos360 Frontend
 
-## Development server
+**Tienda digital responsive desarrollada con Angular 21**
 
-To start a local development server, run:
+![Angular](https://img.shields.io/badge/Angular-21.2-DD0031?logo=angular&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?logo=typescript&logoColor=white)
+![RxJS](https://img.shields.io/badge/RxJS-7.8-B7178C?logo=reactivex&logoColor=white)
+![OAuth](https://img.shields.io/badge/OAuth%202.0-PKCE-2563EB)
+![JWT](https://img.shields.io/badge/JWT-Auth-111827?logo=jsonwebtokens)
 
-```bash
-ng serve
+</div>
+
+## Requisitos
+
+- Node.js `^22.12.0` o `^24.0.0`.
+- npm 10 o superior.
+- Backend Pedidos360 disponible en `http://localhost:8080`.
+
+## Ejecución
+
+```powershell
+npm install
+npm run dev
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
+La aplicación queda disponible en `http://localhost:4200`.
 
-## Code scaffolding
+> Si vienes de una instalación Angular 22 anterior, elimina `node_modules`, `.angular` y `package-lock.json` una sola vez antes de ejecutar `npm install`.
 
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
+## Autenticación
 
-```bash
-ng generate component component-name
+El modal permite registro local e inicio de sesión local. También redirige al API Gateway para autenticación externa con:
+
+- Google
+- Facebook
+- Discord
+- Microsoft
+
+Los formularios usan controles HTML nativos para mantener foco, teclado, autocompletado y compatibilidad con gestores de contraseñas.
+
+Las credenciales OAuth **no viven en Angular**. Los botones Google, Facebook,
+Discord y Microsoft solo redirigen al `api-gateway:8080`; el intercambio de
+`authorization code`, PKCE y secretos se realiza en `msvc-usuario`.
+
+## Estructura
+
+```text
+src/app/
+├── core/       # autenticación, modelos y servicios
+├── features/   # tienda, producto, carrito, checkout y pedidos
+└── shared/     # header, footer, modal y componentes reutilizables
 ```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.

@@ -1,38 +1,18 @@
-<section class="store-page">
-  <div class="search-row">
-    <input
-      type="search"
-      [value]="search()"
-      (input)="updateSearch($event)"
-      (keyup.enter)="applySearch()"
-      placeholder="Buscar en la tienda"
-      aria-label="Buscar producto"
-    />
-    <button type="button" (click)="applySearch()">Buscar</button>
+<section class="store page-container">
+  <div class="retro-banner">
+    <div><span>{{ products.banner().etiqueta }}</span><h1>{{ products.banner().titulo }}</h1><p>{{ products.banner().subtitulo }}</p></div>
+    <strong>{{ products.products().length }}<small>juegos disponibles</small></strong>
   </div>
-
-  <p class="loading" *ngIf="loading()">Cargando productos...</p>
-
-  <div class="product-grid" *ngIf="!loading()">
-    <a
-      class="product-card"
-      *ngFor="let p of filtered(); let index = index"
-      [class.center-last-row-start]="!search().trim() && filtered().length % 5 === 3 && index === filtered().length - 3"
-      [routerLink]="['/game', p.id]"
-    >
-      <!-- La portada proviene de imagenUrl, entregada por msvc-producto. -->
-      <div class="product-image image-slot">
-        <img *ngIf="p.imagenUrl" [src]="p.imagenUrl" [alt]="p.nombre" />
-      </div>
-
-      <div class="product-body">
-        <h2>{{ p.nombre }}</h2>
-        <p>{{ p.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</p>
-      </div>
-    </a>
-  </div>
-
-  <div class="empty" *ngIf="!loading() && !filtered().length">
-    No se encontraron productos para “{{ search() }}”.
+  <div class="catalog-head"><div><h2>Todos los videojuegos</h2><p>{{ filtered().length }} resultados</p></div><label class="search"><span>⌕</span><input type="search" placeholder="Buscar por nombre o categoría" [value]="search()" (input)="search.set($any($event.target).value)"/></label></div>
+  <div class="product-grid">
+    @for (p of filtered(); track p.id) {
+      <article class="product-card" [class.locked]="!auth.isLoggedIn()" (click)="open(p)">
+        <div class="cover"><img [src]="p.imagenUrl" [alt]="p.nombre"/></div>
+        <div class="meta"><div class="category-row"><b>{{ p.categoria }}</b><span>{{ p.stock }} disponibles</span></div><h3>{{ p.nombre }}</h3><div class="price-row"><strong>{{ p.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong><span class="arrow">→</span></div>
+          <details (click)="$event.stopPropagation()"><summary>Ver descripción</summary><p>{{ p.descripcion }}</p></details>
+        </div>
+        @if (!auth.isLoggedIn()) { <div class="lock"><span>🔒</span><b>Inicia sesión para ver y comprar</b></div> }
+      </article>
+    }
   </div>
 </section>

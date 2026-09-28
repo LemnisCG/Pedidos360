@@ -1,0 +1,26 @@
+server:
+  port: ${ENVIO_PORT:8086}
+spring:
+  application:
+    name: msvc-envio
+  datasource:
+    url: ${ENVIO_DB_URL:jdbc:postgresql://localhost:5438/envio_db}
+    username: ${ENVIO_DB_USER:postgres}
+    password: ${ENVIO_DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+  mail:
+    host: ${MAIL_HOST:smtp.gmail.com}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+mail:
+  enabled: ${MAIL_ENABLED:false}
+  from: ${MAIL_FROM:no-reply@pedidos360.local}
+frontend:
+  public-url: ${FRONTEND_PUBLIC_URL:http://localhost:4200}
