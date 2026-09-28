@@ -1,0 +1,61 @@
+server:
+  port: ${USUARIO_PORT:8081}
+
+spring:
+  application:
+    name: msvc-usuario
+  datasource:
+    url: ${USUARIO_DB_URL:jdbc:postgresql://localhost:5433/usuario_db}
+    username: ${USUARIO_DB_USER:postgres}
+    password: ${USUARIO_DB_PASSWORD:postgres}
+  jpa:
+    hibernate:
+      ddl-auto: update
+    open-in-view: false
+
+pedidos360:
+  jwt-secret: ${JWT_SECRET:pedidos360-local-dev-secret-key-change-me-2026}
+  jwt-expiration-minutes: ${JWT_EXPIRATION_MINUTES:120}
+
+oauth:
+  frontend-url: ${FRONTEND_URL:http://localhost:4200}
+  gateway-public-url: ${GATEWAY_PUBLIC_URL:http://localhost:8080}
+  providers:
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
+      authorization-url: https://accounts.google.com/o/oauth2/v2/auth
+      token-url: https://oauth2.googleapis.com/token
+      user-info-url: https://openidconnect.googleapis.com/v1/userinfo
+      scope: openid email profile
+      pkce: true
+
+    facebook:
+      client-id: ${FACEBOOK_CLIENT_ID:}
+      client-secret: ${FACEBOOK_CLIENT_SECRET:}
+      authorization-url: https://www.facebook.com/v26.0/dialog/oauth
+      token-url: https://graph.facebook.com/v26.0/oauth/access_token
+      user-info-url: https://graph.facebook.com/v26.0/me?fields=id,name,email
+      scope: email,public_profile
+      pkce: ${FACEBOOK_PKCE_ENABLED:true}
+
+    discord:
+      client-id: ${DISCORD_CLIENT_ID:}
+      client-secret: ${DISCORD_CLIENT_SECRET:}
+      authorization-url: https://discord.com/oauth2/authorize
+      token-url: https://discord.com/api/oauth2/token
+      user-info-url: https://discord.com/api/users/@me
+      scope: identify email
+      pkce: true
+
+    microsoft:
+      # Microsoft se configura igual que los demás proveedores: todas las
+      # credenciales y endpoints se inyectan desde pedidos360-backend/.env.
+      client-id: ${MICROSOFT_CLIENT_ID:}
+      tenant-id: ${MICROSOFT_TENANT_ID:}
+      client-secret: ${MICROSOFT_CLIENT_SECRET:}
+      authorization-url: ${MICROSOFT_AUTH_URL:}
+      token-url: ${MICROSOFT_TOKEN_URL:}
+      user-info-url: ${MICROSOFT_USERINFO_URL:https://graph.microsoft.com/oidc/userinfo}
+      scope: ${MICROSOFT_SCOPE:openid profile email offline_access}
+      pkce: true

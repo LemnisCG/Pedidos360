@@ -1,86 +1,231 @@
-# Pedidos360 - guía rápida
+# Pedidos360 — Guía de configuración y ejecución
 
-Pedidos360 mantiene la autenticación existente con Microsoft Entra External ID y utiliza una estructura Angular por `core`, `shared` y `features`.
+## 1. Requisitos
 
-## Puertos
-- Frontend Angular: `4200`
-- BFF autenticación: `8080`
-- Perfil: `8081`
-- Producto: `8082`
-- Carrito existente: `8083`
-- Orden: `8084`
-- Pago: `8085`
-- Catálogo anterior: `8086` (se conserva para no eliminar trabajo previo)
+- Docker Desktop + Docker Compose
+- Node.js **24.13.x o superior dentro de la rama 24** (Angular 21 LTS también soporta Node 22.12+)
+- npm
+- Puertos libres: `4200`, `8080–8086`, `5433–5438`
 
-## Catálogo
-El catálogo principal contiene 13 videojuegos:
+## 2. Estructura
 
-1. ASTRO BOT
-2. Mario Kart 8 Deluxe
-3. Minecraft
-4. Street Fighter II Ultra
-5. Super Mario Bros. 3
-6. Red Dead Redemption 2
-7. The Witcher 3: Wild Hunt
-8. Super Mario Odyssey
-9. Elden Ring
-10. God of War Ragnarök
-11. Tekken 8
-12. The Legend of Zelda: Tears of the Kingdom
-13. Hollow Knight
+```text
+Pedidos360/
+├── README.md
+├── PEDIDOS360_GUIA.md
+├── AUDITORIA_TECNICA.md
+├── pedidos360-backend/
+│   ├── .env
+│   ├── .env.example
+│   ├── compose-pedidos360.yml
+│   ├── docker-compose.yml
+│   ├── api-gateway/       # :8080
+│   ├── msvc-usuario/      # :8081
+│   ├── msvc-producto/     # :8082
+│   ├── msvc-carrito/      # :8083
+│   ├── msvc-catalogo/     # :8084
+│   ├── msvc-pago/         # :8085
+│   └── msvc-envio/        # :8086
+└── pedidos360-frontend/
+    ├── public/assets/games/
+    ├── public/assets/icons/
+    ├── public/assets/providers/
+    └── src/app/
+```
 
-El frontend muestra 5 productos en la primera fila, 5 en la segunda y los últimos 3 centrados en escritorio.
+## 3. Levantar Backend
 
-## Levantar frontend
-```bash
+Toda la configuración de Docker y secretos quedó dentro de `pedidos360-backend`.
+
+```powershell
+cd pedidos360-backend
+
+docker compose -f compose-pedidos360.yml down
+docker compose -f compose-pedidos360.yml up --build
+
+o
+
+docker compose down
+docker compose up --build
+
+```
+
+Detener sin borrar bases de datos:
+
+```powershell
+docker compose -f compose-pedidos360.yml down
+```
+
+No uses `down -v` salvo que quieras eliminar los volúmenes PostgreSQL.
+
+Comprobar Gateway:
+
+```text
+http://localhost:8080/health
+```
+
+## 4. Levantar Frontend 
+
+```powershell
+
 cd pedidos360-frontend
 npm install
-npm start
-o con el comando: 
-ng serve --host 0.0.0.0 --port 4200
+npm run dev
 ```
 
-## Levantar Producto, Orden y Pago con Docker
-```bash
-cd pedidos-backend
-docker compose -f compose-pedidos360.yaml down
-docker compose -f compose-pedidos360.yaml up --build
+
+## 5. Registro local
+
+El modal usa **controles HTML nativos** y validación desde Angular. Esto evita
+problemas de foco o escritura cuando se abre el formulario sobre el catálogo.
+Para crear una cuenta solicita:
+
+- Nombre
+- Apellido
+- Correo
+- Contraseña (mínimo 8 caracteres)
+- Repetir contraseña
+
+El login local solicita correo y contraseña. Los errores se muestran dentro del mismo modal.
+
+## 6. OAuth — callbacks locales
+
+Configura exactamente estas URLs en cada proveedor:
+
+```text
+Google:    http://localhost:8080/api/auth/oauth2/callback/google
+Facebook:  http://localhost:8080/api/auth/oauth2/callback/facebook
+Discord:   http://localhost:8080/api/auth/oauth2/callback/discord
+Microsoft: http://localhost:8080/api/auth/oauth2/callback/microsoft
 ```
 
-## Autenticación y pop-up de usuario
-Microsoft Entra External ID se configura en `src/app/core/auth/auth.service.ts`.
+### Facebook
 
-Al hacer clic sobre el nombre del usuario en la cabecera se muestra:
-- Estado: Sesión Activa
-- Nombre del usuario
-- Correo obtenido desde la cuenta autenticada
+Para Facebook Login web, deja activados **Client OAuth Login** y **Web OAuth Login**. Usa exactamente el callback anterior.
 
-## Checkout y dirección de envío
-El checkout agrega un campo **Dirección de envío**. La dirección y el correo del usuario se almacenan junto con la orden.
+Esta versión usa Graph API `v26.0` y el Authorization Code del lado servidor. `FACEBOOK_PKCE_ENABLED` queda en `false` porque el flujo manual documentado por Meta para Facebook Login web canjea el código con `client_secret` en backend.
 
-## Correo REAL de confirmación
-`msvc-orden` incluye envío de correo por SMTP mediante Spring Mail. El **destinatario** se obtiene automáticamente del correo de la sesión Microsoft Entra.
+Si el proveedor no devuelve `email`, Pedidos360 regresa al modal con un mensaje claro en lugar de mostrar `Whitelabel Error Page`.
 
-Por seguridad, el proyecto no contiene contraseñas de correo. Para habilitar el envío real:
+### Microsoft Entra External ID
 
-1. En `pedidos-backend`, copia `.env.example` como `.env`.
-2. Completa una cuenta remitente SMTP real.
-3. Mantén `MAIL_ENABLED=true`.
-4. Reconstruye `msvc-orden` con Docker Compose.
+El error `AADSTS50011` significa que la URI enviada por Pedidos360 no coincide con una Redirect URI registrada.
 
-Ejemplo:
+En **Microsoft Entra → App registrations → tu aplicación → Authentication** agrega, bajo plataforma **Web**:
+
+```text
+http://localhost:8080/api/auth/oauth2/callback/microsoft
+```
+
+Debe coincidir exactamente. Como el código se canjea desde `msvc-usuario`, configura también un **Client Secret** y colócalo en:
+
+```env
+MICROSOFT_CLIENT_SECRET=...
+```
+
+La configuración de Microsoft queda completamente externalizada en `.env`:
+
+```env
+MICROSOFT_CLIENT_ID=
+MICROSOFT_TENANT_ID=92aabe28-d724-4ac3-a20c-45088143bf29
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_AUTH_URL=https://pedidos360auth.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/oauth2/v2.0/authorize
+MICROSOFT_TOKEN_URL=https://pedidos360auth.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/oauth2/v2.0/token
+MICROSOFT_USERINFO_URL=https://graph.microsoft.com/oidc/userinfo
+MICROSOFT_SCOPE=openid profile email offline_access
+```
+
+`MICROSOFT_AUTH_URL` y `MICROSOFT_TOKEN_URL` podrían construirse en código, pero
+se mantienen como variables para usar el mismo patrón de configuración que con
+Google, Facebook y Discord y para evitar URLs OAuth hardcodeadas.
+
+> Importante: `MICROSOFT_CLIENT_ID` y `MICROSOFT_CLIENT_SECRET` deben pertenecer
+> a una aplicación registrada en el mismo tenant indicado por
+> `MICROSOFT_TENANT_ID`. No mezcles credenciales de otro directorio de Azure con
+> los endpoints `pedidos360auth.ciamlogin.com`.
+
+## 7. Variables OAuth
+
+Archivo: `pedidos360-backend/.env`
+
+```env
+GOOGLE_CLIENT_ID=
+GOOGLE_CLIENT_SECRET=
+FACEBOOK_CLIENT_ID=
+FACEBOOK_CLIENT_SECRET=
+DISCORD_CLIENT_ID=
+DISCORD_CLIENT_SECRET=
+MICROSOFT_CLIENT_ID=
+MICROSOFT_TENANT_ID=92aabe28-d724-4ac3-a20c-45088143bf29
+MICROSOFT_CLIENT_SECRET=
+MICROSOFT_AUTH_URL=https://pedidos360auth.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/oauth2/v2.0/authorize
+MICROSOFT_TOKEN_URL=https://pedidos360auth.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/oauth2/v2.0/token
+MICROSOFT_USERINFO_URL=https://graph.microsoft.com/oidc/userinfo
+MICROSOFT_SCOPE=openid profile email offline_access
+```
+
+No publiques valores reales en GitHub.
+
+## 8. SMTP
+
 ```env
 MAIL_ENABLED=true
 MAIL_HOST=smtp.gmail.com
 MAIL_PORT=587
-MAIL_USERNAME=tu-cuenta-remitente@gmail.com
-MAIL_PASSWORD=tu-contrasena-de-aplicacion
-MAIL_FROM=tu-cuenta-remitente@gmail.com
+MAIL_USERNAME=cuenta-remitente@gmail.com
+MAIL_PASSWORD=CONTRASENA_DE_APLICACION
+MAIL_FROM=cuenta-remitente@gmail.com
 ```
 
-> Para Gmail normalmente debes usar una contraseña de aplicación. Para Microsoft 365/Outlook, la organización debe permitir el método de envío SMTP correspondiente. Nunca subas el archivo `.env` con credenciales reales a GitHub.
+## 9. Flujo de autenticación
 
-## Flujo implementado
-Tienda -> detalle del juego -> carrito -> checkout -> pago simulado -> creación de orden -> intento de correo real -> detalle con códigos digitales.
+```text
+Frontend Angular
+      ↓
+API Gateway :8080
+      ↓
+msvc-usuario
+  ↙             ↘
+Cuenta local     OAuth externo
+BCrypt + JWT     Google / Facebook / Discord / Microsoft
+      \           /
+       JWT interno Pedidos360
+              ↓
+        rutas protegidas
+```
 
-> `msvc-pago` sigue siendo una simulación académica y no procesa ni cobra tarjetas reales. El correo, en cambio, sí se envía realmente cuando SMTP está correctamente configurado.
+## 10. Flujo de compra
+
+```text
+Tienda → Producto → Carrito → Checkout
+                         ↓
+                    msvc-pago
+                  ↙      ↓      ↘
+             producto  carrito  envío/SMTP
+                         ↓
+                    Mis pedidos
+```
+
+## Corrección V8: frontend y Facebook
+
+- Angular se mantiene en 21.2.x para ser compatible con Node 24.13.x.
+- Se retiraron `vitest` y `jsdom` del frontend porque eran dependencias de pruebas no utilizadas y provocaban conflicto de peer dependencies durante `npm install`.
+- El modal de autenticación usa inputs HTML nativos y `FormData`, evitando reinicios o bloqueos de escritura por estado de formularios.
+- Los botones de proveedores muestran el icono a la izquierda y el texto centrado.
+- Facebook usa un canje de código específico y consulta Graph API con `access_token`; el callback local debe apuntar al API Gateway, no directamente a Angular.
+
+
+## Corrección Facebook PKCE y registro local — V10
+
+Si Facebook autenticaba al usuario pero regresaba al formulario, el log mostraba `No code_verifier specified when a code challenge is provided`. La V10 conserva el `code_verifier` junto al `state` y lo reenvía al endpoint de token de Facebook. Mantén `FACEBOOK_PKCE_ENABLED=true`.
+
+Para reconstruir después del cambio:
+
+```powershell
+cd pedidos360-backend
+docker compose down
+docker compose up --build -d
+docker compose logs -f msvc-usuario api-gateway
+```
+
+El `409 Conflict` del registro local ahora se muestra con un mensaje legible. Si el correo ya existía únicamente por OAuth y aún no tenía contraseña local, Pedidos360 permite añadir la contraseña y reutilizar la misma cuenta. Si el correo ya posee contraseña local, el 409 se mantiene porque se trata de una cuenta duplicada real.

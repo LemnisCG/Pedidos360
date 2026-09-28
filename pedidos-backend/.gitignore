@@ -43,3 +43,5 @@ src/main/resources/application-local.properties
 *.p12
 *.jks
 *.key
+# Secretos locales y credenciales de proveedores
+.env

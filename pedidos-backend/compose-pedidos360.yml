@@ -1,0 +1,251 @@
+name: pedidos360
+
+services:
+  # Base de datos exclusiva del microservicio de usuarios.
+  db-usuario:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: usuario_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d usuario_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - usuario_data:/var/lib/postgresql/data
+
+  # Base de datos exclusiva del microservicio de productos.
+  db-producto:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: producto_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5434:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d producto_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - producto_data:/var/lib/postgresql/data
+
+  # Base de datos exclusiva del carrito.
+  db-carrito:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: carrito_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5435:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d carrito_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - carrito_data:/var/lib/postgresql/data
+
+  # Base de datos exclusiva para configuración de catálogo/banner.
+  db-catalogo:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: catalogo_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5436:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d catalogo_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - catalogo_data:/var/lib/postgresql/data
+
+  # Pago también conserva la orden/historial de compra para evitar un octavo servicio.
+  db-pago:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pago_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5437:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d pago_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - pago_data:/var/lib/postgresql/data
+
+  # Base de datos exclusiva para registro de envíos/notificaciones.
+  db-envio:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: envio_db
+      POSTGRES_USER: "${POSTGRES_USER:-postgres}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "5438:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d envio_db"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    volumes:
+      - envio_data:/var/lib/postgresql/data
+
+  msvc-usuario:
+    build:
+      context: ./msvc-usuario
+    environment:
+      USUARIO_DB_URL: jdbc:postgresql://db-usuario:5432/usuario_db
+      USUARIO_DB_USER: "${POSTGRES_USER:-postgres}"
+      USUARIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      JWT_SECRET: "${JWT_SECRET}"
+      JWT_EXPIRATION_MINUTES: "${JWT_EXPIRATION_MINUTES:-120}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
+      GATEWAY_PUBLIC_URL: "${GATEWAY_PUBLIC_URL:-http://localhost:8080}"
+      MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID:-}"
+      MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID:-}"
+      MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET:-}"
+      MICROSOFT_AUTH_URL: "${MICROSOFT_AUTH_URL:-}"
+      MICROSOFT_TOKEN_URL: "${MICROSOFT_TOKEN_URL:-}"
+      MICROSOFT_USERINFO_URL: "${MICROSOFT_USERINFO_URL:-https://graph.microsoft.com/oidc/userinfo}"
+      MICROSOFT_SCOPE: "${MICROSOFT_SCOPE:-openid profile email offline_access}"
+      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
+      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
+      FACEBOOK_CLIENT_ID: "${FACEBOOK_CLIENT_ID:-}"
+      FACEBOOK_CLIENT_SECRET: "${FACEBOOK_CLIENT_SECRET:-}"
+      FACEBOOK_PKCE_ENABLED: "${FACEBOOK_PKCE_ENABLED:-true}"
+      DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
+      DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
+    ports:
+      - "8081:8081"
+    depends_on:
+      db-usuario:
+        condition: service_healthy
+
+  msvc-producto:
+    build:
+      context: ./msvc-producto
+    environment:
+      PRODUCTO_DB_URL: jdbc:postgresql://db-producto:5432/producto_db
+      PRODUCTO_DB_USER: "${POSTGRES_USER:-postgres}"
+      PRODUCTO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "8082:8082"
+    depends_on:
+      db-producto:
+        condition: service_healthy
+
+  msvc-carrito:
+    build:
+      context: ./msvc-carrito
+    environment:
+      CARRITO_DB_URL: jdbc:postgresql://db-carrito:5432/carrito_db
+      CARRITO_DB_USER: "${POSTGRES_USER:-postgres}"
+      CARRITO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+    ports:
+      - "8083:8083"
+    depends_on:
+      db-carrito:
+        condition: service_healthy
+
+  msvc-catalogo:
+    build:
+      context: ./msvc-catalogo
+    environment:
+      CATALOGO_DB_URL: jdbc:postgresql://db-catalogo:5432/catalogo_db
+      CATALOGO_DB_USER: "${POSTGRES_USER:-postgres}"
+      CATALOGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      PRODUCTO_URL: http://msvc-producto:8082
+    ports:
+      - "8084:8084"
+    depends_on:
+      db-catalogo:
+        condition: service_healthy
+      msvc-producto:
+        condition: service_started
+
+  msvc-envio:
+    build:
+      context: ./msvc-envio
+    environment:
+      ENVIO_DB_URL: jdbc:postgresql://db-envio:5432/envio_db
+      ENVIO_DB_USER: "${POSTGRES_USER:-postgres}"
+      ENVIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      MAIL_ENABLED: "${MAIL_ENABLED:-false}"
+      MAIL_HOST: "${MAIL_HOST:-smtp.gmail.com}"
+      MAIL_PORT: "${MAIL_PORT:-587}"
+      MAIL_USERNAME: "${MAIL_USERNAME:-}"
+      MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
+      MAIL_FROM: "${MAIL_FROM:-no-reply@pedidos360.local}"
+      FRONTEND_PUBLIC_URL: "${FRONTEND_PUBLIC_URL:-http://localhost:4200}"
+    ports:
+      - "8086:8086"
+    depends_on:
+      db-envio:
+        condition: service_healthy
+
+  msvc-pago:
+    build:
+      context: ./msvc-pago
+    environment:
+      PAGO_DB_URL: jdbc:postgresql://db-pago:5432/pago_db
+      PAGO_DB_USER: "${POSTGRES_USER:-postgres}"
+      PAGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
+      PRODUCTO_URL: http://msvc-producto:8082
+      CARRITO_URL: http://msvc-carrito:8083
+      ENVIO_URL: http://msvc-envio:8086
+    ports:
+      - "8085:8085"
+    depends_on:
+      db-pago:
+        condition: service_healthy
+      msvc-producto:
+        condition: service_started
+      msvc-carrito:
+        condition: service_started
+      msvc-envio:
+        condition: service_started
+
+  # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida JWT.
+  api-gateway:
+    build:
+      context: ./api-gateway
+    environment:
+      GATEWAY_PORT: "8080"
+      JWT_SECRET: "${JWT_SECRET}"
+      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
+      USUARIO_URL: http://msvc-usuario:8081
+      PRODUCTO_URL: http://msvc-producto:8082
+      CARRITO_URL: http://msvc-carrito:8083
+      CATALOGO_URL: http://msvc-catalogo:8084
+      PAGO_URL: http://msvc-pago:8085
+      ENVIO_URL: http://msvc-envio:8086
+    ports:
+      - "8080:8080"
+    depends_on:
+      - msvc-usuario
+      - msvc-producto
+      - msvc-carrito
+      - msvc-catalogo
+      - msvc-pago
+      - msvc-envio
+
+volumes:
+  usuario_data:
+  producto_data:
+  carrito_data:
+  catalogo_data:
+  pago_data:
+  envio_data:
