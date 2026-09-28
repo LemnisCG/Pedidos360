@@ -1,0 +1,17 @@
+server:
+  port: ${GATEWAY_PORT:8080}
+
+spring:
+  application:
+    name: api-gateway
+
+pedidos360:
+  jwt-secret: ${JWT_SECRET:pedidos360-local-dev-secret-key-change-me-2026}
+  frontend-url: ${FRONTEND_URL:http://localhost:4200}
+  services:
+    usuario: ${USUARIO_URL:http://localhost:8081}
+    producto: ${PRODUCTO_URL:http://localhost:8082}
+    carrito: ${CARRITO_URL:http://localhost:8083}
+    catalogo: ${CATALOGO_URL:http://localhost:8084}
+    pago: ${PAGO_URL:http://localhost:8085}
+    envio: ${ENVIO_URL:http://localhost:8086}

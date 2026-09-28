@@ -1,36 +1,25 @@
-# Pedidos360 — Arquitectura Base (EP1)
+<div align="center">
 
-## 📌 Descripción del Proyecto
-Este repositorio contiene la arquitectura base del sistema **Pedidos360**, desarrollado como parte de la Evaluación Parcial N°1 de la asignatura *Desarrollo Cloud Native I*. 
+# 🎮 Pedidos360
 
-El objetivo del proyecto es construir una solución escalable y segura, estructurada mediante microservicios en el backend y preparada para su posterior despliegue e integración en servicios de la nube (AWS EC2, AWS API Gateway) con autenticación basada en IDaaS (Azure AD).
+**Tienda digital de videojuegos · Angular + Spring Boot + PostgreSQL + Docker + OAuth 2.0**
 
----
+![Angular](https://img.shields.io/badge/Angular-21%20LTS-DD0031?logo=angular&logoColor=white)
+![Java](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-4.1-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker&logoColor=white)
 
-## 🛠️ Tecnologías del Proyecto
+</div>
 
-* **Backend:** Java 21, Spring Boot 3.3, Spring Data JPA, Hibernate 6 y PostgreSQL 16.
-* **IDaaS:** Azure Active Directory (Azure AD).
-* **Infraestructura Cloud (Planeada):** AWS EC2, AWS API Gateway, Base de datos Cloud.
-* **Frontend:** *En fase de evaluación por el equipo de desarrollo.*
+Pedidos360 combina una SPA Angular responsive con un backend de microservicios. El flujo contempla registro local, proveedores externos, JWT, catálogo, stock, carrito, pago académico, historial y notificaciones SMTP.
 
----
+- **Frontend:** `pedidos360-frontend/`
+- **Backend:** `pedidos360-backend/`
+- **Guía completa:** `PEDIDOS360_GUIA.md`
 
-## 📂 Organización del Repositorio
+## Microsoft Entra External ID
 
-La estructura del proyecto está organizada en directorios modulares:
-
-```text
-Pedidos360/
-│
-├── 📁 pedidos-backend/          # Agregador Maven de microservicios
-│   ├── pom.xml                  # Parent y módulos del backend
-│   └── 📁 ms-perfil/            # Microservicio de perfiles
-│       └── src/main/java/.../
-│           ├── interfaces/rest/ # Capa de presentación: API REST
-│           ├── application/     # Capa de aplicación: casos de uso
-│           ├── domain/model/    # Modelo de negocio
-│           └── infrastructure/  # Capa de datos: repositorios JPA
-│
-├── 📁 pedidos360-frontend/     # Cliente Web (Pendiente de inicialización)
-└── 📁 pedidos-docs/            # Documentación técnica, changelogs y diagramas
+La integración Microsoft se configura exclusivamente en `pedidos360-backend/.env`.
+El frontend nunca almacena `Client Secret`; solo inicia el flujo a través del API Gateway.
+Consulta `PEDIDOS360_GUIA.md` para las variables y la Redirect URI exacta.

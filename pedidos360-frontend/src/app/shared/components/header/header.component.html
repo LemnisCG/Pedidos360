@@ -1,54 +1,27 @@
 <header class="site-header">
   <div class="header-inner">
-    <a class="brand" routerLink="/">Pedidos360</a>
-
-    <nav aria-label="Navegación principal">
-      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{ exact: true }">Tienda</a>
-      <a routerLink="/order-details/demo" routerLinkActive="active">Pedidos</a>
+    <a class="brand" routerLink="/"><img src="/assets/icons/camion-de-reparto.png" alt=""/><span>Pedidos<span>360</span></span></a>
+    <nav class="main-nav" aria-label="Navegación principal">
+      <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Tienda</a>
+      <a routerLink="/orders" routerLinkActive="active">Mis pedidos</a>
     </nav>
-
     <div class="actions">
-      <ng-container *ngIf="auth.account$ | async as account; else guest">
-        <!--
-          Usamos <details>/<summary> para el menú del usuario.
-          Es un desplegable nativo del navegador, por lo que no depende de
-          estados manuales ni listeners globales y resulta más confiable.
-        -->
+      @if (auth.user(); as user) {
         <details class="user-menu">
-          <summary class="user-trigger">
-            <span class="avatar">{{ (account.name || account.username || 'U').charAt(0) }}</span>
-            <span class="user-name">{{ account.name || account.username }}</span>
-            <span class="chevron" aria-hidden="true">⌄</span>
-          </summary>
-
+          <summary class="user-trigger"><span class="avatar">{{ user.nombre.charAt(0) }}</span><span class="user-name">{{ user.nombre }} {{ user.apellido }}</span><span class="chevron">⌃</span></summary>
           <div class="user-popover">
-            <div class="popover-row status-row">
-              <strong>Estado:</strong>
-              <span>Sesión Activa</span>
-              <span class="status-check" aria-label="Sesión activa">✓</span>
-            </div>
-            <div class="popover-row user-row">
-              <strong>Usuario:</strong>
-              <span>
-                {{ account.name || account.username }}
-                <small>({{ auth.email }})</small>
-              </span>
-            </div>
+            <div class="status"><strong>Estado:</strong> Sesión Activa <span class="check">✓</span></div>
+            <div><strong>Usuario:</strong> {{ user.nombre }} {{ user.apellido }}</div>
+            <small>{{ user.email }}</small>
+            <div class="provider"><span>Proveedor</span><b>{{ user.provider }}</b></div>
           </div>
         </details>
-
-        <button class="link-btn" type="button" (click)="auth.logout()">Salir</button>
-      </ng-container>
-
-      <ng-template #guest>
-        <button class="link-btn" type="button" (click)="auth.login()">Iniciar sesión</button>
-        <button class="signup" type="button" (click)="auth.register()">Crear cuenta</button>
-      </ng-template>
-
-      <a class="cart" routerLink="/cart" aria-label="Carrito">
-        <span class="cart-icon">🛍</span>
-        <b>{{ cart.count() }}</b>
-      </a>
+        <button class="link-btn" (click)="logout()">Salir</button>
+      } @else {
+        <button class="link-btn" (click)="auth.open('login')">Iniciar sesión</button>
+        <button class="signup" (click)="auth.open('register')">Crear cuenta</button>
+      }
+      <a class="cart" routerLink="/cart" aria-label="Carrito"><span>🛒</span><b>{{ cart.count() }}</b></a>
     </div>
   </div>
 </header>

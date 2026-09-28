@@ -1,0 +1,159 @@
+@if (auth.modal(); as mode) {
+  <div class="auth-overlay">
+    <section class="auth-panel" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+      <button class="close" type="button" (click)="auth.close()" aria-label="Cerrar ventana">×</button>
+
+      @if (auth.busy()) {
+        <div class="loading-state">
+          <span class="spinner" aria-hidden="true"></span>
+          <h2>{{ mode === 'register' ? 'Creando cuenta...' : 'Iniciando sesión...' }}</h2>
+          <p>Estamos preparando tu experiencia en Pedidos360.</p>
+        </div>
+      } @else {
+        <header>
+          <img src="/assets/icons/palanca-de-mando.png" alt="" />
+          <h1 id="auth-title">Pedidos360</h1>
+          <p>
+            {{ mode === 'register'
+              ? 'Crea tu cuenta y comienza tu próxima aventura.'
+              : 'Bienvenido de vuelta. Ingresa para continuar.' }}
+          </p>
+        </header>
+
+        <form #authForm (submit)="submit(mode, authForm, $event)">
+          @if (mode === 'register') {
+            <div class="two-cols">
+              <label>
+                <span>Nombre</span>
+                <input
+                  name="nombre"
+                  type="text"
+                  autocomplete="given-name"
+                  placeholder="Alcindo"
+                  maxlength="80"
+                  required
+                />
+              </label>
+
+              <label>
+                <span>Apellido</span>
+                <input
+                  name="apellido"
+                  type="text"
+                  autocomplete="family-name"
+                  placeholder="Chavarria"
+                  maxlength="80"
+                  required
+                />
+              </label>
+            </div>
+          }
+
+          <label>
+            <span>Correo electrónico</span>
+            <input
+              name="email"
+              type="email"
+              autocomplete="email"
+              placeholder="tu@correo.cl"
+              required
+            />
+          </label>
+
+          <label>
+            <span>Contraseña</span>
+            <div class="password">
+              <input
+                name="password"
+                [type]="showPassword() ? 'text' : 'password'"
+                [attr.autocomplete]="mode === 'register' ? 'new-password' : 'current-password'"
+                placeholder="Mínimo 8 caracteres"
+                minlength="8"
+                maxlength="72"
+                required
+              />
+              <button
+                class="eye"
+                type="button"
+                (click)="showPassword.set(!showPassword())"
+                [attr.aria-label]="showPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                {{ showPassword() ? '●' : '◉' }}
+              </button>
+            </div>
+          </label>
+
+          @if (mode === 'register') {
+            <label>
+              <span>Repetir contraseña</span>
+              <div class="password">
+                <input
+                  name="repeat"
+                  [type]="showRepeat() ? 'text' : 'password'"
+                  autocomplete="new-password"
+                  placeholder="Repite tu contraseña"
+                  minlength="8"
+                  maxlength="72"
+                  required
+                />
+                <button
+                  class="eye"
+                  type="button"
+                  (click)="showRepeat.set(!showRepeat())"
+                  [attr.aria-label]="showRepeat() ? 'Ocultar contraseña' : 'Mostrar contraseña'">
+                  {{ showRepeat() ? '●' : '◉' }}
+                </button>
+              </div>
+            </label>
+          }
+
+          @if (auth.error()) {
+            <div class="error" role="alert">{{ auth.error() }}</div>
+          }
+
+          <button class="primary" type="submit">
+            {{ mode === 'register' ? 'Crear cuenta' : 'Iniciar sesión' }}
+          </button>
+        </form>
+
+        <div class="separator">
+          <span></span>
+          <b>o {{ mode === 'register' ? 'regístrate' : 'inicia sesión' }} con</b>
+          <span></span>
+        </div>
+
+        <div class="providers" aria-label="Proveedores de autenticación">
+          <button type="button" (click)="oauth('google')">
+            <img src="/assets/providers/google.svg" alt="" />
+            <span>Continuar con Google</span>
+            <i aria-hidden="true"></i>
+          </button>
+
+          <button type="button" (click)="oauth('facebook')">
+            <img src="/assets/providers/facebook.svg" alt="" />
+            <span>Continuar con Facebook</span>
+            <i aria-hidden="true"></i>
+          </button>
+
+          <button type="button" (click)="oauth('discord')">
+            <img src="/assets/providers/discord.svg" alt="" />
+            <span>Continuar con Discord</span>
+            <i aria-hidden="true"></i>
+          </button>
+
+          <button type="button" (click)="oauth('microsoft')">
+            <img src="/assets/providers/microsoft.svg" alt="" />
+            <span>Continuar con Microsoft</span>
+            <i aria-hidden="true"></i>
+          </button>
+        </div>
+
+        <p class="switch">
+          {{ mode === 'register' ? '¿Ya tienes una cuenta?' : '¿No tienes una cuenta?' }}
+          <button type="button" (click)="changeMode(mode === 'register' ? 'login' : 'register')">
+            {{ mode === 'register' ? 'Inicia sesión' : 'Crear una' }}
+          </button>
+        </p>
+      }
+    </section>
+  </div>
+}

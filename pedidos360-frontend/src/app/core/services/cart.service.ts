@@ -1,19 +1,27 @@
-import { Injectable } from '@angular/core';
-import { BehaviorSubject } from 'rxjs';
+import { Injectable, computed, signal } from '@angular/core';
+import { HttpClient } from '@angular/common/http';
+import { firstValueFrom } from 'rxjs';
+import { API_BASE_URL } from '../config/api';
+import { AuthService } from '../auth/auth.service';
+import { ProductService } from './product.service';
+import { CartApiItem, CartLine } from '../models/cart.model';
 import { Product } from '../models/product.model';
-import { CartItem } from '../models/cart.model';
 
 @Injectable({ providedIn: 'root' })
 export class CartService {
-  // Se usa una nueva clave para evitar recuperar productos antiguos sin portada desde localStorage.
-  private readonly key = 'pedidos360_cart_clp_v3';
-  readonly items$ = new BehaviorSubject<CartItem[]>(this.load());
-  private load(): CartItem[] { try { return JSON.parse(localStorage.getItem(this.key) || '[]'); } catch { return []; } }
-  private save(items: CartItem[]) { localStorage.setItem(this.key, JSON.stringify(items)); this.items$.next(items); }
-  add(product: Product) { const items = [...this.items$.value]; const found = items.find(i => i.product.id === product.id); found ? found.quantity++ : items.push({ product, quantity: 1 }); this.save(items); }
-  update(id: number, quantity: number) { this.save(this.items$.value.map(i => i.product.id === id ? {...i, quantity} : i)); }
-  remove(id: number) { this.save(this.items$.value.filter(i => i.product.id !== id)); }
-  clear() { this.save([]); }
-  count() { return this.items$.value.reduce((a, i) => a + i.quantity, 0); }
-  total() { return this.items$.value.reduce((a, i) => a + i.product.precio * i.quantity, 0); }
+  readonly lines = signal<CartLine[]>([]);
+  readonly count = computed(() => this.lines().reduce((sum, line) => sum + line.cantidad, 0));
+  readonly total = computed(() => this.lines().reduce((sum, line) => sum + line.producto.precio * line.cantidad, 0));
+  constructor(private http: HttpClient, private auth: AuthService, private products: ProductService) {}
+
+  async load() {
+    if (!this.auth.isLoggedIn()) { this.lines.set([]); return; }
+    const api = await firstValueFrom(this.http.get<CartApiItem[]>(`${API_BASE_URL}/api/carrito`));
+    const byId = new Map(this.products.products().map(p => [p.id, p]));
+    this.lines.set(api.map(i => ({ producto: byId.get(i.productoId), cantidad: i.cantidad })).filter(x => !!x.producto) as CartLine[]);
+  }
+  async add(producto: Product, cantidad = 1) { await firstValueFrom(this.http.post(`${API_BASE_URL}/api/carrito`, { productoId: producto.id, cantidad })); await this.load(); }
+  async update(productoId: number, cantidad: number) { await firstValueFrom(this.http.put(`${API_BASE_URL}/api/carrito/${productoId}`, { productoId, cantidad })); await this.load(); }
+  async remove(productoId: number) { await firstValueFrom(this.http.delete(`${API_BASE_URL}/api/carrito/${productoId}`)); await this.load(); }
+  clearLocal() { this.lines.set([]); }
 }

@@ -5,8 +5,6 @@ import { bootstrapApplication } from '@angular/platform-browser';
 import { appConfig } from './app/app.config';
 import { App } from './app/app';
 
-// Registramos el locale de Chile para mostrar los precios como $59.990, $29.990, etc.
+// Locale chileno para precios CLP y fechas del catálogo.
 registerLocaleData(localeEsCL);
-
-bootstrapApplication(App, appConfig)
-  .catch((err) => console.error(err));
+bootstrapApplication(App, appConfig).catch(console.error);

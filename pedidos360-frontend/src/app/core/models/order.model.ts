@@ -1,21 +1,6 @@
-export interface OrderLine {
-  productoId: number;
-  nombre: string;
-  precioUnitario: number;
-  cantidad: number;
-  codigoJuego?: string;
-  imagenUrl?: string;
-}
-
+export interface OrderItem { productoId: number; nombre: string; cantidad: number; precio: number; imagenUrl: string; codigoDigital: string; }
 export interface Order {
-  id: string;
-  numeroOrden: string;
-  fecha: string;
-  estado: string;
-  metodoPago: string;
-  total: number;
-  clienteEmail?: string;
-  direccionEnvio?: string;
-  confirmacionEmailEnviada?: boolean;
-  items: OrderLine[];
+  id: string; numeroPedido: string; usuarioId: string; email: string; nombreUsuario: string; direccion: string;
+  total: number; metodoPago: string; tarjetaUltimos4: string; estado: string; emailEnviado: boolean;
+  creadoEn: string; items: OrderItem[];
 }

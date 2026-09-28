@@ -1,97 +1,56 @@
 package cl.duoc.pedidos360.producto.service;
 
+import cl.duoc.pedidos360.producto.dto.StockRequest;
 import cl.duoc.pedidos360.producto.model.Producto;
 import cl.duoc.pedidos360.producto.repository.ProductoRepository;
-import jakarta.transaction.Transactional;
-import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.server.ResponseStatusException;
 
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
+/** Operaciones de consulta y descuento transaccional del inventario. */
 @Service
 public class ProductoService {
-    private final ProductoRepository repo;
 
-    public ProductoService(ProductoRepository repo) {
-        this.repo = repo;
+    private final ProductoRepository repository;
+
+    public ProductoService(ProductoRepository repository) {
+        this.repository = repository;
     }
 
-    // El orden por ID mantiene estable la distribución visual 5 + 5 + 3 del catálogo.
-    public List<Producto> listar() {
-        return repo.findAll(Sort.by(Sort.Direction.ASC, "id"));
+    public List<Producto> all() {
+        return repository.findAll();
     }
 
-    public Producto buscar(Long id) {
-        return repo.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + id));
-    }
-
-    public Producto guardar(Producto p) {
-        return repo.save(p);
-    }
-
-    public Producto actualizar(Long id, Producto p) {
-        Producto actual = buscar(id);
-        actual.setNombre(p.getNombre());
-        actual.setDescripcion(p.getDescripcion());
-        actual.setPrecio(p.getPrecio());
-        actual.setStock(p.getStock());
-        actual.setImagenUrl(p.getImagenUrl());
-        actual.setCategoria(p.getCategoria());
-        actual.setFechaLanzamiento(p.getFechaLanzamiento());
-        return repo.save(actual);
-    }
-
-    public void eliminar(Long id) {
-        repo.delete(buscar(id));
+    public Producto one(Long id) {
+        return repository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Producto no encontrado"));
     }
 
     /**
-     * Descuenta el inventario real cuando msvc-orden confirma una compra.
-     * Primero valida todos los productos y recién después aplica cambios;
-     * así no queda una compra parcialmente descontada por falta de stock.
+     * Descuenta cada producto con bloqueo pesimista.
+     * Si un ítem no tiene stock suficiente, la transacción completa se revierte.
      */
     @Transactional
-    public List<Producto> descontarStock(List<StockItem> items) {
-        if (items == null || items.isEmpty()) {
-            throw new IllegalArgumentException("El pedido no contiene productos");
-        }
+    public void descontar(List<StockRequest> items) {
+        for (StockRequest item : items) {
+            Producto producto = repository.findByIdForUpdate(item.productoId())
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Producto no encontrado: " + item.productoId()
+                    ));
 
-        // Agrupa por producto por seguridad, aunque el carrito normalmente ya viene sin duplicados.
-        Map<Long, Integer> cantidades = new LinkedHashMap<>();
-        for (StockItem item : items) {
-            if (item.productoId() == null || item.cantidad() == null || item.cantidad() <= 0) {
-                throw new IllegalArgumentException("Producto o cantidad inválida");
-            }
-            cantidades.merge(item.productoId(), item.cantidad(), Integer::sum);
-        }
-
-        List<Producto> productos = new ArrayList<>();
-        for (Map.Entry<Long, Integer> entry : cantidades.entrySet()) {
-            Producto producto = repo.buscarParaActualizar(entry.getKey())
-                    .orElseThrow(() -> new IllegalArgumentException("Producto no encontrado: " + entry.getKey()));
-
-            int stockActual = producto.getStock() == null ? 0 : producto.getStock();
-            if (stockActual < entry.getValue()) {
-                throw new IllegalStateException(
-                        "Stock insuficiente para " + producto.getNombre() +
-                        ". Disponible: " + stockActual + ", solicitado: " + entry.getValue()
+            if (producto.getStock() < item.cantidad()) {
+                throw new ResponseStatusException(
+                        HttpStatus.CONFLICT,
+                        "Stock insuficiente para " + producto.getNombre()
                 );
             }
-            productos.add(producto);
-        }
 
-        // Todos pasaron la validación: ahora sí se descuenta.
-        for (Producto producto : productos) {
-            int cantidad = cantidades.get(producto.getId());
-            producto.setStock(producto.getStock() - cantidad);
+            producto.setStock(producto.getStock() - item.cantidad());
+            repository.save(producto);
         }
-
-        return repo.saveAll(productos);
     }
-
-    public record StockItem(Long productoId, Integer cantidad) {}
 }
