@@ -1,8 +1,10 @@
 package cl.duoc.pedidos360.pago.controller;
 
+import cl.duoc.pedidos360.pago.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.pago.model.Pedido;
 import cl.duoc.pedidos360.pago.model.PedidoItem;
 import cl.duoc.pedidos360.pago.repository.PedidoRepository;
+import cl.duoc.pedidos360.pago.service.PagoEventPublisher;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
@@ -37,6 +39,7 @@ public class PagoController {
     private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
     private final PedidoRepository repository;
+    private final PagoEventPublisher pagoEventPublisher;
     private final RestClient http = RestClient.create();
     private final SecureRandom random = new SecureRandom();
     private final String productoUrl;
@@ -45,11 +48,13 @@ public class PagoController {
 
     public PagoController(
             PedidoRepository repository,
+            PagoEventPublisher pagoEventPublisher,
             @Value("${services.producto-url}") String productoUrl,
             @Value("${services.carrito-url}") String carritoUrl,
             @Value("${services.envio-url}") String envioUrl
     ) {
         this.repository = repository;
+        this.pagoEventPublisher = pagoEventPublisher;
         this.productoUrl = productoUrl;
         this.carritoUrl = carritoUrl;
         this.envioUrl = envioUrl;
@@ -174,27 +179,31 @@ public class PagoController {
         pedido.setTotal(total);
         pedido = repository.save(pedido);
 
-        // El pedido no se pierde si SMTP falla: se conserva emailEnviado=false para poder reintentar.
+        // Publicar evento asíncrono a RabbitMQ para que msvc-envio procese el envío/email.
+        // El checkout responde inmediatamente sin esperar al correo.
+        List<PagoCompletadoEvent.ItemEvent> eventItems = emailItems.stream()
+                .map(i -> new PagoCompletadoEvent.ItemEvent(i.nombre(), i.cantidad(), i.precio(), i.imagenUrl()))
+                .toList();
+
+        PagoCompletadoEvent event = new PagoCompletadoEvent(
+                pedido.getId(),
+                pedido.getNumeroPedido(),
+                userId,
+                nombre,
+                email,
+                request.direccion(),
+                total,
+                eventItems
+        );
+
         try {
-            EnvioResult result = http.post()
-                    .uri(envioUrl + "/internal/envios/confirmacion")
-                    .body(new EnvioRequest(
-                            pedido.getId(),
-                            pedido.getNumeroPedido(),
-                            userId,
-                            nombre,
-                            email,
-                            request.direccion(),
-                            total,
-                            emailItems
-                    ))
-                    .retrieve()
-                    .body(EnvioResult.class);
-            pedido.setEmailEnviado(result != null && result.emailEnviado());
-        } catch (Exception ignored) {
+            pagoEventPublisher.publicarPagoCompletado(event);
+        } catch (Exception e) {
+            // Si RabbitMQ está caído, el pedido sigue siendo válido.
+            // Se registra como no enviado para reintento manual.
             pedido.setEmailEnviado(false);
+            pedido = repository.save(pedido);
         }
-        pedido = repository.save(pedido);
 
         // Una compra confirmada deja el carrito vacío, pero un fallo al limpiar no invalida el pago.
         try {

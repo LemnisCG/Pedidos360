@@ -11,6 +11,14 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -24,3 +32,12 @@ mail:
   from: ${MAIL_FROM:no-reply@pedidos360.local}
 frontend:
   public-url: ${FRONTEND_PUBLIC_URL:http://localhost:4200}
+rabbitmq:
+  exchange:
+    pedidos: pedidos.exchange
+  queue:
+    envio: envio.queue
+    envio-dlq: envio.dlq
+  routing-key:
+    pago-completado: pago.completado
+
