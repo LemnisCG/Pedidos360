@@ -1,132 +1,90 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { MsalBroadcastService, MsalService } from '@azure/msal-angular';
+import { AccountInfo, AuthenticationResult, EventMessage, EventType } from '@azure/msal-browser';
 import { firstValueFrom } from 'rxjs';
-import { Router } from '@angular/router';
-import { API_BASE_URL } from '../config/api';
+import { API_GATEWAY_ACCESS_TOKEN_SCOPE, ENTRA_APP_ROLE_ADMINISTRADOR } from './entra-external-id.config';
 
-export type AuthMode = 'login' | 'register';
-export type AuthProvider = 'local' | 'google' | 'facebook' | 'discord' | 'microsoft';
-export interface AuthUser { id: string; nombre: string; apellido: string; email: string; provider: AuthProvider; }
-interface AuthResponse { token: string; usuario: AuthUser; }
+export interface AuthUser { id: string; nombre: string; apellido: string; email: string; roles: string[]; }
 
-/** Estado de autenticación único para formulario local, OAuth y JWT interno. */
+/** Estado de autenticación de Pedidos360, respaldado por MSAL y Microsoft Entra External ID. */
 @Injectable({ providedIn: 'root' })
 export class AuthService {
-  private readonly tokenKey = 'pedidos360.jwt';
-  readonly user = signal<AuthUser | null>(this.userFromToken(localStorage.getItem(this.tokenKey)));
-  readonly modal = signal<AuthMode | null>(null);
-  readonly busy = signal(false);
-  readonly error = signal('');
+  readonly user = signal<AuthUser | null>(null);
   readonly isLoggedIn = computed(() => !!this.user());
 
-  constructor(private http: HttpClient, private router: Router) {}
+  /** Roles leídos del claim "roles" del token. Un cliente auto-registrado no trae ninguno. */
+  readonly rolesFromTokenClaims = computed(() => this.user()?.roles ?? []);
+  readonly hasAdministradorRole = computed(() => this.rolesFromTokenClaims().includes(ENTRA_APP_ROLE_ADMINISTRADOR));
 
-  open(mode: AuthMode = 'login') { this.error.set(''); this.modal.set(mode); }
-  openWithError(message: string) { this.modal.set('login'); this.error.set(message); }
-  close() { if (!this.busy()) this.modal.set(null); }
-  switchMode(mode: AuthMode) { this.error.set(''); this.modal.set(mode); }
-  get token() { return localStorage.getItem(this.tokenKey); }
+  /** Scopes concedidos en el último access token obtenido para el API Gateway (claim "scp"). */
+  readonly scopesGrantedInAccessToken = signal<string[]>([]);
 
-  async login(email: string, password: string) {
-    this.busy.set(true); this.error.set('');
+  constructor(private msalService: MsalService, msalBroadcastService: MsalBroadcastService) {
+    this.refreshUserFromActiveMsalAccount();
+    msalBroadcastService.msalSubject$.subscribe(event => this.reactToMsalEvent(event));
+  }
+
+  /**
+   * Se ejecuta antes de que arranque la aplicación: procesa la respuesta de Entra cuando
+   * se vuelve del login y deja seleccionada la cuenta activa que usarán guard e interceptor.
+   */
+  async completeSignInRedirectAndSelectActiveAccount() {
     try {
-      const response = await firstValueFrom(this.http.post<AuthResponse>(`${API_BASE_URL}/api/auth/login`, { email, password }));
-      this.accept(response.token, response.usuario);
-      this.modal.set(null); await this.router.navigateByUrl('/');
-    } catch (e: any) { this.error.set(this.authErrorMessage(e, 'login')); throw e; }
-    finally { this.busy.set(false); }
-  }
-
-  async register(nombre: string, apellido: string, email: string, password: string) {
-    this.busy.set(true); this.error.set('');
-    try {
-      const response = await firstValueFrom(this.http.post<AuthResponse>(`${API_BASE_URL}/api/auth/register`, { nombre, apellido, email, password }));
-      this.accept(response.token, response.usuario);
-      this.modal.set(null); await this.router.navigateByUrl('/');
-    } catch (e: any) { this.error.set(this.authErrorMessage(e, 'register')); throw e; }
-    finally { this.busy.set(false); }
-  }
-
-  oauth(provider: Exclude<AuthProvider, 'local'>) {
-    // El API Gateway redirige al proveedor; el callback vuelve con un JWT interno de Pedidos360.
-    window.location.href = `${API_BASE_URL}/api/auth/oauth2/${provider}/authorize`;
-  }
-
-  async acceptOAuthFragment(fragment: string | null) {
-    const params = new URLSearchParams(fragment || '');
-    const token = params.get('token');
-    if (!token) throw new Error('El proveedor no devolvió un token válido.');
-    this.accept(token, this.userFromToken(token));
-    await this.router.navigateByUrl('/');
-  }
-
-  logout() { localStorage.removeItem(this.tokenKey); this.user.set(null); this.router.navigateByUrl('/'); }
-
-  /** Convierte respuestas HTTP del backend en mensajes útiles para el usuario. */
-  private authErrorMessage(error: any, action: 'login' | 'register'): string {
-    const status = Number(error?.status ?? 0);
-    const backendMessage = this.extractBackendMessage(error?.error);
-
-    // 409 se trata primero para no terminar mostrando solamente "Conflict".
-    if (status === 409) {
-      if (backendMessage && backendMessage.toLowerCase() !== 'conflict') return backendMessage;
-      return 'Ya existe una cuenta con este correo. Inicia sesión o utiliza otro correo electrónico.';
+      const redirectResult = await firstValueFrom(this.msalService.handleRedirectObservable());
+      const msalInstance = this.msalService.instance;
+      const account = redirectResult?.account ?? msalInstance.getActiveAccount() ?? msalInstance.getAllAccounts()[0] ?? null;
+      msalInstance.setActiveAccount(account);
+      if (redirectResult) this.rememberScopesGrantedInAccessToken(redirectResult);
+    } catch (error) {
+      // Un login cancelado o fallido no debe impedir que la tienda pública cargue.
+      console.error('No se pudo completar el inicio de sesión con Entra External ID', error);
     }
-
-    if (backendMessage && !['bad request', 'unauthorized'].includes(backendMessage.toLowerCase())) {
-      return backendMessage;
-    }
-
-    if (status === 401) {
-      return 'Correo electrónico o contraseña incorrectos.';
-    }
-    if (status === 400) {
-      return 'Revisa los datos ingresados e inténtalo nuevamente.';
-    }
-    if (status === 0) {
-      return 'No se pudo conectar con el backend de Pedidos360.';
-    }
-
-    return action === 'register'
-      ? 'No fue posible crear la cuenta.'
-      : 'No fue posible iniciar sesión.';
+    this.refreshUserFromActiveMsalAccount();
   }
 
-  /** Soporta errores JSON y respuestas de texto del Gateway/servidor. */
-  private extractBackendMessage(body: any): string {
-    if (!body) return '';
-    if (typeof body?.message === 'string' && body.message.trim()) return body.message.trim();
+  signInWithEntraExternalId() {
+    this.msalService.loginRedirect({ scopes: [API_GATEWAY_ACCESS_TOKEN_SCOPE] });
+  }
 
-    if (typeof body === 'string') {
-      const text = body.trim();
-      if (!text) return '';
-      try {
-        const parsed = JSON.parse(text);
-        if (typeof parsed?.message === 'string') return parsed.message.trim();
-      } catch {
-        return text;
-      }
+  /**
+   * Abre la misma página de Entra que el inicio de sesión: el registro se inicia ahí con el
+   * enlace "¿No tiene una cuenta? Cree una", que es el camino estándar del user flow.
+   */
+  signUpWithEntraExternalId() {
+    this.msalService.loginRedirect({ scopes: [API_GATEWAY_ACCESS_TOKEN_SCOPE] });
+  }
+
+  logout() {
+    this.msalService.logoutRedirect({ account: this.msalService.instance.getActiveAccount() });
+  }
+
+  private reactToMsalEvent(event: EventMessage) {
+    if (event.eventType === EventType.LOGIN_SUCCESS || event.eventType === EventType.ACQUIRE_TOKEN_SUCCESS) {
+      const result = event.payload as AuthenticationResult;
+      if (result?.account) this.msalService.instance.setActiveAccount(result.account);
+      if (result) this.rememberScopesGrantedInAccessToken(result);
+      // Un token renovado puede traer roles distintos si se cambiaron en Entra.
+      this.refreshUserFromActiveMsalAccount();
     }
-
-    return '';
+    if (event.eventType === EventType.LOGOUT_SUCCESS) {
+      this.scopesGrantedInAccessToken.set([]);
+      this.user.set(null);
+    }
   }
 
-  private accept(token: string, explicit: AuthUser | null) {
-    localStorage.setItem(this.tokenKey, token);
-    this.user.set(explicit ?? this.userFromToken(token));
+  private rememberScopesGrantedInAccessToken(result: AuthenticationResult) {
+    if (result.accessToken && result.scopes?.length) this.scopesGrantedInAccessToken.set(result.scopes);
   }
 
-  private userFromToken(token: string | null): AuthUser | null {
-    if (!token) return null;
-    try {
-      const raw = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
-      const padded = raw + '='.repeat((4 - raw.length % 4) % 4);
-      const binary = atob(padded);
-      const bytes = Uint8Array.from(binary, char => char.charCodeAt(0));
-      const payload = JSON.parse(new TextDecoder().decode(bytes));
-      if (payload.exp && payload.exp * 1000 < Date.now()) { localStorage.removeItem(this.tokenKey); return null; }
-      const [nombre, ...rest] = String(payload.name || 'Usuario').split(' ');
-      return { id: String(payload.sub), nombre, apellido: rest.join(' '), email: String(payload.email || ''), provider: (payload.provider || 'local') as AuthProvider };
-    } catch { return null; }
+  private refreshUserFromActiveMsalAccount() {
+    this.user.set(this.userFromMsalAccount(this.msalService.instance.getActiveAccount()));
+  }
+
+  private userFromMsalAccount(account: AccountInfo | null): AuthUser | null {
+    if (!account) return null;
+    const claims = account.idTokenClaims ?? {};
+    const email = String(claims['email'] ?? claims.preferred_username ?? account.username ?? '');
+    const [nombre, ...rest] = String(claims.name || account.name || email.split('@')[0] || 'Usuario').split(' ');
+    return { id: String(claims.oid ?? account.localAccountId), nombre, apellido: rest.join(' '), email, roles: claims.roles ?? [] };
   }
 }

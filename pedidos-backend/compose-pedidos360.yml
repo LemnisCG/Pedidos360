@@ -110,26 +110,6 @@ services:
       USUARIO_DB_URL: jdbc:postgresql://db-usuario:5432/usuario_db
       USUARIO_DB_USER: "${POSTGRES_USER:-postgres}"
       USUARIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-      JWT_SECRET: "${JWT_SECRET}"
-      JWT_EXPIRATION_MINUTES: "${JWT_EXPIRATION_MINUTES:-120}"
-      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
-      GATEWAY_PUBLIC_URL: "${GATEWAY_PUBLIC_URL:-http://localhost:8080}"
-      MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID:-}"
-      MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID:-}"
-      MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET:-}"
-      MICROSOFT_AUTH_URL: "${MICROSOFT_AUTH_URL:-}"
-      MICROSOFT_TOKEN_URL: "${MICROSOFT_TOKEN_URL:-}"
-      MICROSOFT_USERINFO_URL: "${MICROSOFT_USERINFO_URL:-https://graph.microsoft.com/oidc/userinfo}"
-      MICROSOFT_SCOPE: "${MICROSOFT_SCOPE:-openid profile email offline_access}"
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
-      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
-      FACEBOOK_CLIENT_ID: "${FACEBOOK_CLIENT_ID:-}"
-      FACEBOOK_CLIENT_SECRET: "${FACEBOOK_CLIENT_SECRET:-}"
-      FACEBOOK_PKCE_ENABLED: "${FACEBOOK_PKCE_ENABLED:-true}"
-      DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
-      DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
-    ports:
-      - "8081:8081"
     depends_on:
       db-usuario:
         condition: service_healthy
@@ -141,8 +121,6 @@ services:
       PRODUCTO_DB_URL: jdbc:postgresql://db-producto:5432/producto_db
       PRODUCTO_DB_USER: "${POSTGRES_USER:-postgres}"
       PRODUCTO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-    ports:
-      - "8082:8082"
     depends_on:
       db-producto:
         condition: service_healthy
@@ -154,8 +132,6 @@ services:
       CARRITO_DB_URL: jdbc:postgresql://db-carrito:5432/carrito_db
       CARRITO_DB_USER: "${POSTGRES_USER:-postgres}"
       CARRITO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-    ports:
-      - "8083:8083"
     depends_on:
       db-carrito:
         condition: service_healthy
@@ -168,8 +144,6 @@ services:
       CATALOGO_DB_USER: "${POSTGRES_USER:-postgres}"
       CATALOGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       PRODUCTO_URL: http://msvc-producto:8082
-    ports:
-      - "8084:8084"
     depends_on:
       db-catalogo:
         condition: service_healthy
@@ -190,8 +164,6 @@ services:
       MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
       MAIL_FROM: "${MAIL_FROM:-no-reply@pedidos360.local}"
       FRONTEND_PUBLIC_URL: "${FRONTEND_PUBLIC_URL:-http://localhost:4200}"
-    ports:
-      - "8086:8086"
     depends_on:
       db-envio:
         condition: service_healthy
@@ -206,8 +178,6 @@ services:
       PRODUCTO_URL: http://msvc-producto:8082
       CARRITO_URL: http://msvc-carrito:8083
       ENVIO_URL: http://msvc-envio:8086
-    ports:
-      - "8085:8085"
     depends_on:
       db-pago:
         condition: service_healthy
@@ -218,13 +188,16 @@ services:
       msvc-envio:
         condition: service_started
 
-  # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida JWT.
+  # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida el access token de Entra.
+  # Es el único servicio con puerto publicado: los microservicios solo son alcanzables a través de él.
   api-gateway:
     build:
       context: ./api-gateway
     environment:
       GATEWAY_PORT: "8080"
-      JWT_SECRET: "${JWT_SECRET}"
+      ENTRA_EXTERNAL_ID_ISSUER_URI: "${ENTRA_EXTERNAL_ID_ISSUER_URI:-https://92aabe28-d724-4ac3-a20c-45088143bf29.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/v2.0}"
+      ENTRA_EXTERNAL_ID_API_AUDIENCE: "${ENTRA_EXTERNAL_ID_API_AUDIENCE:-6314fdda-9417-40f2-8ebe-9cc6ef7cd4ed}"
+      ENTRA_EXTERNAL_ID_REQUIRED_SCOPE: "${ENTRA_EXTERNAL_ID_REQUIRED_SCOPE:-BFF.Access}"
       FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
       USUARIO_URL: http://msvc-usuario:8081
       PRODUCTO_URL: http://msvc-producto:8082

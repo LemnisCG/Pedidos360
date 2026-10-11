@@ -28,6 +28,12 @@ public class CatalogoConfig {
         this.subtitulo = subtitulo;
     }
 
+    public void replaceBannerTexts(String etiqueta, String titulo, String subtitulo) {
+        this.etiqueta = etiqueta;
+        this.titulo = titulo;
+        this.subtitulo = subtitulo;
+    }
+
     public Long getId() {
         return id;
     }

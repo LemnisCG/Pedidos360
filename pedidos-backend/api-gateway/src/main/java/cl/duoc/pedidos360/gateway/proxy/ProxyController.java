@@ -1,10 +1,13 @@
 package cl.duoc.pedidos360.gateway.proxy;
 
+import cl.duoc.pedidos360.gateway.security.AuthenticatedUserIdentityHeaders;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.buffer.DataBuffer;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.reactive.function.BodyInserters;
@@ -14,6 +17,7 @@ import reactor.core.publisher.Mono;
 
 import java.net.URI;
 import java.util.Map;
+import java.util.Optional;
 
 /** Proxy explícito que conserva método, path, query, cuerpo y cabeceras útiles. */
 @Controller
@@ -49,6 +53,15 @@ public class ProxyController {
 
     @RequestMapping("/api/**")
     public Mono<Void> proxy(ServerWebExchange exchange) {
+        // En rutas públicas no hay token: se reenvía la petición sin identidad de usuario.
+        return exchange.getPrincipal()
+                .filter(JwtAuthenticationToken.class::isInstance)
+                .map(principal -> Optional.of(((JwtAuthenticationToken) principal).getToken()))
+                .defaultIfEmpty(Optional.empty())
+                .flatMap(validatedAccessToken -> forward(exchange, validatedAccessToken.orElse(null)));
+    }
+
+    private Mono<Void> forward(ServerWebExchange exchange, Jwt validatedAccessToken) {
         String path = exchange.getRequest().getURI().getRawPath();
         String base = targets.entrySet().stream()
                 .filter(entry -> path.startsWith(entry.getKey()))
@@ -67,7 +80,12 @@ public class ProxyController {
         WebClient.RequestBodySpec request = webClient
                 .method(exchange.getRequest().getMethod())
                 .uri(target)
-                .headers(headers -> copyRequestHeaders(exchange.getRequest().getHeaders(), headers));
+                .headers(headers -> {
+                    copyRequestHeaders(exchange.getRequest().getHeaders(), headers);
+                    if (validatedAccessToken != null) {
+                        AuthenticatedUserIdentityHeaders.writeFromValidatedAccessToken(headers, validatedAccessToken);
+                    }
+                });
 
         return request.body(BodyInserters.fromDataBuffers(exchange.getRequest().getBody()))
                 .exchangeToMono(response -> {
@@ -88,6 +106,7 @@ public class ProxyController {
     private void copyRequestHeaders(HttpHeaders source, HttpHeaders target) {
         source.forEach((name, values) -> {
             if (!name.equalsIgnoreCase(HttpHeaders.HOST)
+                    && !AuthenticatedUserIdentityHeaders.isReservedForGateway(name)
                     && !name.equalsIgnoreCase(HttpHeaders.CONTENT_LENGTH)
                     && !name.equalsIgnoreCase(HttpHeaders.TRANSFER_ENCODING)) {
                 target.put(name, values);
