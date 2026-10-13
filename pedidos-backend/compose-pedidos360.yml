@@ -103,6 +103,20 @@ services:
     volumes:
       - envio_data:/var/lib/postgresql/data
 
+  # Broker de mensajería para comunicación asíncrona entre microservicios.
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
   msvc-usuario:
     build:
       context: ./msvc-usuario
@@ -164,8 +178,11 @@ services:
       MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
       MAIL_FROM: "${MAIL_FROM:-no-reply@pedidos360.local}"
       FRONTEND_PUBLIC_URL: "${FRONTEND_PUBLIC_URL:-http://localhost:4200}"
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       db-envio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   msvc-pago:
@@ -178,6 +195,7 @@ services:
       PRODUCTO_URL: http://msvc-producto:8082
       CARRITO_URL: http://msvc-carrito:8083
       ENVIO_URL: http://msvc-envio:8086
+      RABBITMQ_HOST: rabbitmq
     depends_on:
       db-pago:
         condition: service_healthy
@@ -187,6 +205,20 @@ services:
         condition: service_started
       msvc-envio:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
+
+  # Administración de RabbitMQ vía API REST (colas, exchanges, bindings).
+  msvc-rabbitmq-admin:
+    build:
+      context: ./msvc-rabbitmq-admin
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    ports:
+      - "8090:8090"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida el access token de Entra.
   # Es el único servicio con puerto publicado: los microservicios solo son alcanzables a través de él.
@@ -222,3 +254,4 @@ volumes:
   catalogo_data:
   pago_data:
   envio_data:
+  rabbitmq_data:
