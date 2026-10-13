@@ -11,7 +11,18 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
 services:
   producto-url: ${PRODUCTO_URL:http://localhost:8082}
   carrito-url: ${CARRITO_URL:http://localhost:8083}
   envio-url: ${ENVIO_URL:http://localhost:8086}
+rabbitmq:
+  exchange:
+    pedidos: pedidos.exchange
+  routing-key:
+    pago-completado: pago.completado
+
