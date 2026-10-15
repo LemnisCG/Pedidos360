@@ -5,9 +5,13 @@ import cl.duoc.pedidos360.catalogo.repository.CatalogoConfigRepository;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Map;
@@ -51,6 +55,29 @@ public class CatalogoController {
                 "banner", banner,
                 "productos", productos == null ? List.of() : productos
         );
+    }
+
+    /**
+     * Reemplaza los textos del banner. El api-gateway solo deja pasar esta ruta
+     * cuando el access token trae el App Role "Administrador".
+     */
+    @PutMapping("/api/catalogo/banner")
+    public CatalogoConfig updateCatalogBanner(@RequestBody CatalogBannerUpdateRequest request) {
+        if (isBlank(request.etiqueta()) || isBlank(request.titulo()) || isBlank(request.subtitulo())) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST, "La etiqueta, el título y el subtítulo son obligatorios.");
+        }
+
+        CatalogoConfig banner = repository.findById(1L).orElseGet(CatalogoController::defaultBanner);
+        banner.replaceBannerTexts(request.etiqueta().trim(), request.titulo().trim(), request.subtitulo().trim());
+        return repository.save(banner);
+    }
+
+    public record CatalogBannerUpdateRequest(String etiqueta, String titulo, String subtitulo) {
+    }
+
+    private static boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     /** Crea una configuración inicial solo cuando la base está vacía. */
