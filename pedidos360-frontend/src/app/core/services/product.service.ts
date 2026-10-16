@@ -1,7 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-import { API_BASE_URL } from '../config/api';
+import { API_URL } from '../config/api';
 import { CatalogBanner, CatalogResponse, Product } from '../models/product.model';
 
 @Injectable({ providedIn: 'root' })
@@ -12,14 +12,14 @@ export class ProductService {
   constructor(private http: HttpClient) {}
   async load() {
     this.loading.set(true);
-    try { const data = await firstValueFrom(this.http.get<CatalogResponse>(`${API_BASE_URL}/api/catalogo`)); this.products.set(data.productos || []); if (data.banner) this.banner.set(data.banner); }
+    try { const data = await firstValueFrom(this.http.get<CatalogResponse>(`${API_URL}/catalogo`)); this.products.set(data.productos || []); if (data.banner) this.banner.set(data.banner); }
     finally { this.loading.set(false); }
   }
   /** Solo lo acepta el gateway si el token trae el rol Administrador. */
   async updateCatalogBanner(banner: CatalogBanner) {
-    const saved = await firstValueFrom(this.http.put<CatalogBanner>(`${API_BASE_URL}/api/catalogo/banner`, banner));
+    const saved = await firstValueFrom(this.http.put<CatalogBanner>(`${API_URL}/catalogo/banner`, banner));
     this.banner.set(saved);
     return saved;
   }
-  async get(id: number) { return firstValueFrom(this.http.get<Product>(`${API_BASE_URL}/api/productos/${id}`)); }
+  async get(id: number) { return firstValueFrom(this.http.get<Product>(`${API_URL}/productos/${id}`)); }
 }

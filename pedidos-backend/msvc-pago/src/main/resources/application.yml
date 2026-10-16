@@ -16,13 +16,32 @@ spring:
     port: ${RABBITMQ_PORT:5672}
     username: ${RABBITMQ_USER:guest}
     password: ${RABBITMQ_PASSWORD:guest}
+    # El broker confirma cada publicación y devuelve los mensajes que no llegan a ninguna cola.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
 services:
   producto-url: ${PRODUCTO_URL:http://localhost:8082}
   carrito-url: ${CARRITO_URL:http://localhost:8083}
-  envio-url: ${ENVIO_URL:http://localhost:8086}
+# Nombres de la mensajería: ningún nombre de exchange, cola o routing key se escribe en el código.
 rabbitmq:
   exchange:
     pedidos: pedidos.exchange
+  queue:
+    # Caso de uso 3: marcar el pedido cuando msvc-envio confirma que salió el correo.
+    correo-enviado: pago.correo-enviado.queue
+    correo-enviado-reintento: pago.correo-enviado.reintento.queue
+    correo-enviado-dlq: pago.correo-enviado.dlq
   routing-key:
     pago-completado: pago.completado
-
+    notificacion-correo-enviada: notificacion.correo.enviada
+  publicacion:
+    espera-confirmacion-milisegundos: 5000
+  reintento:
+    espera-milisegundos: 10000
+    maximo-reintentos: 3
+    header-numero-reintento: x-numero-reintento

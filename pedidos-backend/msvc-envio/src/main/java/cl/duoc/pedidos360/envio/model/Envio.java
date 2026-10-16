@@ -10,7 +10,11 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/** Registro de la preparación de envío y del resultado de la notificación SMTP. */
+/**
+ * Registro de la preparación de envío.
+ * El resultado del correo se guarda aparte en NotificacionCorreo; emailEnviado se conserva porque la columna
+ * ya existe como NOT NULL en las bases desplegadas, y queda en false.
+ */
 @Entity
 @Table(name = "envios")
 public class Envio {
