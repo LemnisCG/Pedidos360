@@ -11,6 +11,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -30,11 +32,13 @@ import java.util.UUID;
 
 /**
  * Orquesta la compra: consulta precios confiables, descuenta stock, persiste el pedido,
- * solicita el correo de confirmación y limpia el carrito.
+ * publica el evento pago.completado (registro de envío y correo) y limpia el carrito.
  */
 @RestController
 @RequestMapping("/api/pagos")
 public class PagoController {
+
+    private static final Logger log = LoggerFactory.getLogger(PagoController.class);
 
     private static final String CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -44,20 +48,17 @@ public class PagoController {
     private final SecureRandom random = new SecureRandom();
     private final String productoUrl;
     private final String carritoUrl;
-    private final String envioUrl;
 
     public PagoController(
             PedidoRepository repository,
             PagoEventPublisher pagoEventPublisher,
             @Value("${services.producto-url}") String productoUrl,
-            @Value("${services.carrito-url}") String carritoUrl,
-            @Value("${services.envio-url}") String envioUrl
+            @Value("${services.carrito-url}") String carritoUrl
     ) {
         this.repository = repository;
         this.pagoEventPublisher = pagoEventPublisher;
         this.productoUrl = productoUrl;
         this.carritoUrl = carritoUrl;
-        this.envioUrl = envioUrl;
     }
 
     /** Producto y cantidad elegidos por el cliente. */
@@ -94,24 +95,8 @@ public class PagoController {
     ) {
     }
 
-    /** Producto incluido en el correo de confirmación. */
+    /** Producto incluido en el evento pago.completado (y en el correo de confirmación). */
     public record EnvioItem(String nombre, int cantidad, long precio, String imagenUrl) {
-    }
-
-    /** Contrato interno enviado a msvc-envio. */
-    public record EnvioRequest(
-            UUID pedidoId,
-            String numeroPedido,
-            UUID usuarioId,
-            String nombre,
-            String email,
-            String direccion,
-            long total,
-            List<EnvioItem> items
-    ) {
-    }
-
-    public record EnvioResult(boolean emailEnviado, UUID envioId) {
     }
 
     /** Ejecuta el checkout autenticado y devuelve el pedido ya persistido. */
@@ -199,10 +184,10 @@ public class PagoController {
         try {
             pagoEventPublisher.publicarPagoCompletado(event);
         } catch (Exception e) {
-            // Si RabbitMQ está caído, el pedido sigue siendo válido.
-            // Se registra como no enviado para reintento manual.
-            pedido.setEmailEnviado(false);
-            pedido = repository.save(pedido);
+            // Si RabbitMQ está caído o no confirma, el pedido sigue siendo válido: el pago ya se cobró.
+            // El evento queda registrado en logs con su contenido para reprocesarlo manualmente.
+            log.error("No se publicó pago.completado para el pedido {}. Evento para reproceso manual: {}. Causa: {}",
+                    pedido.getNumeroPedido(), event, e.getMessage());
         }
 
         // Una compra confirmada deja el carrito vacío, pero un fallo al limpiar no invalida el pago.

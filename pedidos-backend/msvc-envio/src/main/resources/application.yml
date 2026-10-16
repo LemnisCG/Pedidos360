@@ -32,12 +32,24 @@ mail:
   from: ${MAIL_FROM:no-reply@pedidos360.local}
 frontend:
   public-url: ${FRONTEND_PUBLIC_URL:http://localhost:4200}
+# Nombres de la mensajería: ningún nombre de exchange, cola o routing key se escribe en el código.
 rabbitmq:
   exchange:
     pedidos: pedidos.exchange
   queue:
+    # Caso de uso 1: registrar el envío de cada pago completado.
     envio: envio.queue
+    envio-reintento: envio.reintento.queue
     envio-dlq: envio.dlq
+    # Caso de uso 2: enviar el correo de confirmación de cada pago completado.
+    notificacion-correo: notificacion.correo.queue
+    notificacion-correo-reintento: notificacion.correo.reintento.queue
+    notificacion-correo-dlq: notificacion.correo.dlq
   routing-key:
     pago-completado: pago.completado
+    notificacion-correo-enviada: notificacion.correo.enviada
+  reintento:
+    espera-milisegundos: 10000
+    maximo-reintentos: 3
+    header-numero-reintento: x-numero-reintento
 

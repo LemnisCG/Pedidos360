@@ -7,4 +7,6 @@ import java.util.UUID;
 
 /** Repositorio exclusivo de msvc-envio. */
 public interface EnvioRepository extends JpaRepository<Envio, UUID> {
+
+    boolean existsByPedidoId(UUID pedidoId);
 }

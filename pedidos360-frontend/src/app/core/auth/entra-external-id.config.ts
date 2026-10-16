@@ -5,7 +5,7 @@ import {
   PublicClientApplication,
 } from '@azure/msal-browser';
 import { MsalGuardConfiguration, MsalInterceptorConfiguration } from '@azure/msal-angular';
-import { API_BASE_URL } from '../config/api';
+import { API_URL } from '../config/api';
 
 /**
  * Datos públicos del registro de aplicación "pedidos360-frontend" en Microsoft Entra External ID.
@@ -31,8 +31,8 @@ export const ENTRA_APP_ROLE_ADMINISTRADOR = 'Administrador';
 export const ENTRA_APP_ROLE_CLIENTE = 'Cliente';
 
 /** Único endpoint del gateway que se puede consultar sin iniciar sesión. */
-const PUBLIC_CATALOG_ENDPOINT_URL = `${API_BASE_URL}/api/catalogo`;
-const PROTECTED_API_GATEWAY_ENDPOINTS_PATTERN = `${API_BASE_URL}/api/*`;
+const PUBLIC_CATALOG_ENDPOINT_URL = `${API_URL}/catalogo`;
+const PROTECTED_API_GATEWAY_ENDPOINTS_PATTERN = `${API_URL}/*`;
 
 export function createEntraExternalIdPublicClientApplication(): IPublicClientApplication {
   return new PublicClientApplication({
