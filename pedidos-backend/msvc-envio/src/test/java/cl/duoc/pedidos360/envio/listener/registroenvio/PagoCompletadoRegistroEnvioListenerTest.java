@@ -2,6 +2,7 @@ package cl.duoc.pedidos360.envio.listener.registroenvio;
 
 import cl.duoc.pedidos360.envio.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.envio.model.Envio;
+import cl.duoc.pedidos360.envio.publisher.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.envio.publisher.ReintentoDeMensajesPublisher;
 import cl.duoc.pedidos360.envio.repository.EnvioRepository;
 import com.rabbitmq.client.Channel;
@@ -36,6 +37,8 @@ class PagoCompletadoRegistroEnvioListenerTest {
     @Mock
     private EnvioRepository envioRepository;
     @Mock
+    private EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
+    @Mock
     private ReintentoDeMensajesPublisher reintentoPublisher;
     @Mock
     private Channel channel;
@@ -44,7 +47,7 @@ class PagoCompletadoRegistroEnvioListenerTest {
 
     @BeforeEach
     void crearListener() {
-        listener = new PagoCompletadoRegistroEnvioListener(envioRepository, reintentoPublisher, REINTENTO_QUEUE, 3, HEADER_REINTENTO);
+        listener = new PagoCompletadoRegistroEnvioListener(envioRepository, eventoDelPedidoAuditoriaPublisher, reintentoPublisher, REINTENTO_QUEUE, 3, HEADER_REINTENTO);
     }
 
     @Test
@@ -55,8 +58,22 @@ class PagoCompletadoRegistroEnvioListenerTest {
         listener.onPagoCompletado(event, channel, DELIVERY_TAG, Map.of());
 
         verify(envioRepository).save(any(Envio.class));
+        verify(eventoDelPedidoAuditoriaPublisher).publicarEnvioRegistrado(event.pedidoId(), event.numeroPedido());
         verify(channel).basicAck(DELIVERY_TAG, false);
         verify(channel, never()).basicNack(anyLong(), any(Boolean.class), any(Boolean.class));
+    }
+
+    @Test
+    void siFallaLaAuditoriaElEnvioIgualSeConfirmaSinReintentar() throws Exception {
+        PagoCompletadoEvent event = eventoValido();
+        when(envioRepository.existsByPedidoId(event.pedidoId())).thenReturn(false);
+        doThrow(new AmqpConnectException(new RuntimeException("broker caído")))
+                .when(eventoDelPedidoAuditoriaPublisher).publicarEnvioRegistrado(event.pedidoId(), event.numeroPedido());
+
+        listener.onPagoCompletado(event, channel, DELIVERY_TAG, Map.of());
+
+        verify(channel).basicAck(DELIVERY_TAG, false);
+        verify(reintentoPublisher, never()).publicarParaReintento(anyString(), any(), anyInt());
     }
 
     @Test
