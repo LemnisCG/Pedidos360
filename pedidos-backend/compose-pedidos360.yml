@@ -104,8 +104,13 @@ services:
       - envio_data:/var/lib/postgresql/data
 
   # Broker de mensajería para comunicación asíncrona entre microservicios.
+  # Nodo 1 del clúster (rabbit@rabbitmq). Conserva el nombre de servicio al que ya se conectan los microservicios.
   rabbitmq:
     image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      # Ambos nodos deben compartir la misma Erlang cookie para unirse al clúster.
+      RABBITMQ_ERLANG_COOKIE: "${RABBITMQ_ERLANG_COOKIE:-pedidos360-cookie-del-cluster-rabbitmq}"
     ports:
       - "5672:5672"
       - "15672:15672"
@@ -118,6 +123,28 @@ services:
       retries: 10
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
+  # Nodo 2 del clúster (rabbit@rabbitmq-nodo2). Arranca cuando el nodo 1 está sano y se une a él
+  # con el descubrimiento de 20-cluster.conf; el nodo 1 no lo monta para no quedar esperando al nodo 2.
+  rabbitmq-nodo2:
+    image: rabbitmq:3-management
+    hostname: rabbitmq-nodo2
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "${RABBITMQ_ERLANG_COOKIE:-pedidos360-cookie-del-cluster-rabbitmq}"
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "gosu", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rabbitmq_nodo2_data:/var/lib/rabbitmq
+      - ./rabbitmq/conf.d/20-cluster.conf:/etc/rabbitmq/conf.d/20-cluster.conf:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
 
   msvc-usuario:
     build:
@@ -181,6 +208,7 @@ services:
       MAIL_FROM: "${MAIL_FROM:-no-reply@pedidos360.local}"
       FRONTEND_PUBLIC_URL: "${FRONTEND_PUBLIC_URL:-http://localhost:4200}"
       RABBITMQ_HOST: rabbitmq
+      RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
       db-envio:
         condition: service_healthy
@@ -198,6 +226,7 @@ services:
       CARRITO_URL: http://msvc-carrito:8083
       ENVIO_URL: http://msvc-envio:8086
       RABBITMQ_HOST: rabbitmq
+      RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
       db-pago:
         condition: service_healthy
@@ -257,3 +286,4 @@ volumes:
   pago_data:
   envio_data:
   rabbitmq_data:
+  rabbitmq_nodo2_data:

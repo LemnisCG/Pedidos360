@@ -142,6 +142,35 @@ Los casos 1 y 2 se ligan con la misma routing key `pago.completado`: cada cola r
 evento (publish/subscribe), así un correo que falla se reintenta sin afectar al registro del envío. El caso 3
 usa la routing key `notificacion.correo.enviada`.
 
+#### Caso de uso 4: auditoría del pedido (exchange topic)
+
+El exchange topic `pedidos.eventos.topic` recibe la historia de cada pedido. La cola de auditoría se liga con el
+patrón `pedido.#`, así recibe cualquier evento del pedido sin conocer cada routing key.
+
+| Routing key | Productor | Cuándo |
+|---|---|---|
+| `pedido.pagado` | `msvc-pago` | El pedido quedó guardado en el checkout |
+| `pedido.envio.registrado` | `msvc-envio` | Se registró el envío (caso 1) |
+| `pedido.correo.enviado` / `pedido.correo.omitido` | `msvc-envio` | Salió el correo o se omitió por SMTP deshabilitado (caso 2) |
+
+`EventoDelPedidoAuditoriaListener` (msvc-envio) guarda cada evento en la tabla `eventos_auditoria_pedido` usando
+`auditoria.pedido.queue`, `auditoria.pedido.reintento.queue` y `auditoria.pedido.dlq`, con el mismo manejo de ACK,
+reintentos y DLQ que los otros casos. Publicar la auditoría nunca afecta al checkout ni a los casos 1 y 2: si falla,
+solo queda en logs.
+
+#### Clúster de dos nodos
+
+`docker compose` levanta `rabbitmq` (`rabbit@rabbitmq`) y `rabbitmq-nodo2` (`rabbit@rabbitmq-nodo2`). Comparten
+la Erlang cookie `RABBITMQ_ERLANG_COOKIE` y se descubren con `rabbitmq/conf.d/20-cluster.conf`. `msvc-pago` y
+`msvc-envio` reciben ambos nodos en `RABBITMQ_ADDRESSES` y se reconectan al otro si uno cae. El panel del nodo 2
+está en `http://localhost:15673`.
+
+```bash
+docker compose exec rabbitmq rabbitmqctl cluster_status
+```
+
+Las colas son *classic*: viven en el nodo donde se declararon y no se replican.
+
 ```text
 cola principal --(error recuperable)--> cola de reintento --(espera de 10 s)--> cola principal
 cola principal --(error no recuperable o 3 reintentos agotados)--> DLQ --> consumidor que registra en logs
