@@ -4,6 +4,7 @@ import cl.duoc.pedidos360.envio.event.NotificacionCorreoEnviadaEvent;
 import cl.duoc.pedidos360.envio.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.envio.listener.ConsumidorConReintentosYDeadLetterQueue;
 import cl.duoc.pedidos360.envio.model.NotificacionCorreo;
+import cl.duoc.pedidos360.envio.publisher.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.envio.publisher.NotificacionCorreoEnviadaPublisher;
 import cl.duoc.pedidos360.envio.publisher.ReintentoDeMensajesPublisher;
 import cl.duoc.pedidos360.envio.repository.NotificacionCorreoRepository;
@@ -39,12 +40,14 @@ public class PagoCompletadoNotificacionCorreoListener extends ConsumidorConReint
     private final NotificacionCorreoRepository notificacionCorreoRepository;
     private final CorreoConfirmacionCompraService correoConfirmacionCompraService;
     private final NotificacionCorreoEnviadaPublisher notificacionCorreoEnviadaPublisher;
+    private final EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
     private final boolean mailEnabled;
 
     public PagoCompletadoNotificacionCorreoListener(
             NotificacionCorreoRepository notificacionCorreoRepository,
             CorreoConfirmacionCompraService correoConfirmacionCompraService,
             NotificacionCorreoEnviadaPublisher notificacionCorreoEnviadaPublisher,
+            EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher,
             ReintentoDeMensajesPublisher reintentoPublisher,
             @Value("${mail.enabled}") boolean mailEnabled,
             @Value("${rabbitmq.queue.notificacion-correo-reintento}") String reintentoQueueName,
@@ -55,6 +58,7 @@ public class PagoCompletadoNotificacionCorreoListener extends ConsumidorConReint
         this.notificacionCorreoRepository = notificacionCorreoRepository;
         this.correoConfirmacionCompraService = correoConfirmacionCompraService;
         this.notificacionCorreoEnviadaPublisher = notificacionCorreoEnviadaPublisher;
+        this.eventoDelPedidoAuditoriaPublisher = eventoDelPedidoAuditoriaPublisher;
         this.mailEnabled = mailEnabled;
     }
 
@@ -80,6 +84,7 @@ public class PagoCompletadoNotificacionCorreoListener extends ConsumidorConReint
         if (!mailEnabled) {
             registrarNotificacion(event, NotificacionCorreo.ESTADO_OMITIDA_SMTP_DESHABILITADO);
             log.info("SMTP deshabilitado: se omite el correo del pedido {}", event.numeroPedido());
+            auditarCorreo(event, false);
             return;
         }
 
@@ -87,6 +92,20 @@ public class PagoCompletadoNotificacionCorreoListener extends ConsumidorConReint
         registrarNotificacion(event, NotificacionCorreo.ESTADO_ENVIADA);
         log.info("Email enviado exitosamente para pedido: {}", event.numeroPedido());
         avisarCorreoEnviado(event);
+        auditarCorreo(event, true);
+    }
+
+    /** La notificación ya quedó registrada: si la auditoría falla, se registra en logs pero no se reintenta el correo. */
+    private void auditarCorreo(PagoCompletadoEvent event, boolean correoEnviado) {
+        try {
+            if (correoEnviado) {
+                eventoDelPedidoAuditoriaPublisher.publicarCorreoEnviado(event.pedidoId(), event.numeroPedido());
+            } else {
+                eventoDelPedidoAuditoriaPublisher.publicarCorreoOmitido(event.pedidoId(), event.numeroPedido());
+            }
+        } catch (AmqpException e) {
+            log.error("No se pudo auditar el correo del pedido {}: {}", event.numeroPedido(), e.getMessage());
+        }
     }
 
     /** Son recuperables las fallas temporales del servidor SMTP o de la base de datos. */
