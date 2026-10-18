@@ -3,9 +3,11 @@ package cl.duoc.pedidos360.envio.listener.registroenvio;
 import cl.duoc.pedidos360.envio.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.envio.listener.ConsumidorConReintentosYDeadLetterQueue;
 import cl.duoc.pedidos360.envio.model.Envio;
+import cl.duoc.pedidos360.envio.publisher.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.envio.publisher.ReintentoDeMensajesPublisher;
 import cl.duoc.pedidos360.envio.repository.EnvioRepository;
 import com.rabbitmq.client.Channel;
+import org.springframework.amqp.AmqpException;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.amqp.support.AmqpHeaders;
 import org.springframework.beans.factory.annotation.Value;
@@ -31,9 +33,11 @@ import java.util.Map;
 public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentosYDeadLetterQueue<PagoCompletadoEvent> {
 
     private final EnvioRepository envioRepository;
+    private final EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
 
     public PagoCompletadoRegistroEnvioListener(
             EnvioRepository envioRepository,
+            EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher,
             ReintentoDeMensajesPublisher reintentoPublisher,
             @Value("${rabbitmq.queue.envio-reintento}") String reintentoQueueName,
             @Value("${rabbitmq.reintento.maximo-reintentos}") int maximoReintentos,
@@ -41,6 +45,7 @@ public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentos
     ) {
         super(reintentoPublisher, reintentoQueueName, maximoReintentos, headerNumeroReintento);
         this.envioRepository = envioRepository;
+        this.eventoDelPedidoAuditoriaPublisher = eventoDelPedidoAuditoriaPublisher;
     }
 
     @RabbitListener(queues = "${rabbitmq.queue.envio}")
@@ -71,6 +76,16 @@ public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentos
         envio.setEstado("PREPARANDO");
         envio.setEmailEnviado(false);
         envioRepository.save(envio);
+        auditarEnvioRegistrado(event);
+    }
+
+    /** El envío ya quedó guardado: si la auditoría falla, se registra en logs pero no se reintenta el registro. */
+    private void auditarEnvioRegistrado(PagoCompletadoEvent event) {
+        try {
+            eventoDelPedidoAuditoriaPublisher.publicarEnvioRegistrado(event.pedidoId(), event.numeroPedido());
+        } catch (AmqpException e) {
+            log.error("No se pudo auditar el registro del envío del pedido {}: {}", event.numeroPedido(), e.getMessage());
+        }
     }
 
     /** Son recuperables las fallas temporales de infraestructura; el resto se repetiría igual en cada intento. */
