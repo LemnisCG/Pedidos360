@@ -4,6 +4,7 @@ import cl.duoc.pedidos360.pago.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.pago.model.Pedido;
 import cl.duoc.pedidos360.pago.model.PedidoItem;
 import cl.duoc.pedidos360.pago.repository.PedidoRepository;
+import cl.duoc.pedidos360.pago.service.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.pago.service.PagoEventPublisher;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -44,6 +45,7 @@ public class PagoController {
 
     private final PedidoRepository repository;
     private final PagoEventPublisher pagoEventPublisher;
+    private final EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
     private final RestClient http = RestClient.create();
     private final SecureRandom random = new SecureRandom();
     private final String productoUrl;
@@ -52,11 +54,13 @@ public class PagoController {
     public PagoController(
             PedidoRepository repository,
             PagoEventPublisher pagoEventPublisher,
+            EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher,
             @Value("${services.producto-url}") String productoUrl,
             @Value("${services.carrito-url}") String carritoUrl
     ) {
         this.repository = repository;
         this.pagoEventPublisher = pagoEventPublisher;
+        this.eventoDelPedidoAuditoriaPublisher = eventoDelPedidoAuditoriaPublisher;
         this.productoUrl = productoUrl;
         this.carritoUrl = carritoUrl;
     }
@@ -188,6 +192,13 @@ public class PagoController {
             // El evento queda registrado en logs con su contenido para reprocesarlo manualmente.
             log.error("No se publicó pago.completado para el pedido {}. Evento para reproceso manual: {}. Causa: {}",
                     pedido.getNumeroPedido(), event, e.getMessage());
+        }
+
+        // Auditoría del pedido por el exchange topic: si falla, el checkout sigue igual.
+        try {
+            eventoDelPedidoAuditoriaPublisher.publicarPedidoPagado(pedido.getId(), pedido.getNumeroPedido());
+        } catch (Exception e) {
+            log.error("No se pudo auditar el pago del pedido {}: {}", pedido.getNumeroPedido(), e.getMessage());
         }
 
         // Una compra confirmada deja el carrito vacío, pero un fallo al limpiar no invalida el pago.

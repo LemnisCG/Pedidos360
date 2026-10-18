@@ -3,6 +3,7 @@ package cl.duoc.pedidos360.envio.listener.notificacioncorreo;
 import cl.duoc.pedidos360.envio.event.NotificacionCorreoEnviadaEvent;
 import cl.duoc.pedidos360.envio.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.envio.model.NotificacionCorreo;
+import cl.duoc.pedidos360.envio.publisher.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.envio.publisher.NotificacionCorreoEnviadaPublisher;
 import cl.duoc.pedidos360.envio.publisher.ReintentoDeMensajesPublisher;
 import cl.duoc.pedidos360.envio.repository.NotificacionCorreoRepository;
@@ -44,6 +45,8 @@ class PagoCompletadoNotificacionCorreoListenerTest {
     @Mock
     private NotificacionCorreoEnviadaPublisher notificacionCorreoEnviadaPublisher;
     @Mock
+    private EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
+    @Mock
     private ReintentoDeMensajesPublisher reintentoPublisher;
     @Mock
     private Channel channel;
@@ -56,6 +59,7 @@ class PagoCompletadoNotificacionCorreoListenerTest {
 
         assertThat(notificacionGuardada().getEstado()).isEqualTo(NotificacionCorreo.ESTADO_OMITIDA_SMTP_DESHABILITADO);
         verify(correoConfirmacionCompraService, never()).enviarConfirmacionDeCompra(any());
+        verify(eventoDelPedidoAuditoriaPublisher).publicarCorreoOmitido(event.pedidoId(), event.numeroPedido());
         verify(channel).basicAck(DELIVERY_TAG, false);
     }
 
@@ -69,6 +73,7 @@ class PagoCompletadoNotificacionCorreoListenerTest {
         assertThat(notificacionGuardada().getEstado()).isEqualTo(NotificacionCorreo.ESTADO_ENVIADA);
         verify(notificacionCorreoEnviadaPublisher)
                 .publicarCorreoEnviado(new NotificacionCorreoEnviadaEvent(event.pedidoId(), event.numeroPedido()));
+        verify(eventoDelPedidoAuditoriaPublisher).publicarCorreoEnviado(event.pedidoId(), event.numeroPedido());
         verify(channel).basicAck(DELIVERY_TAG, false);
     }
 
@@ -121,7 +126,7 @@ class PagoCompletadoNotificacionCorreoListenerTest {
 
     private PagoCompletadoNotificacionCorreoListener listener(boolean mailEnabled) {
         return new PagoCompletadoNotificacionCorreoListener(notificacionCorreoRepository, correoConfirmacionCompraService,
-                notificacionCorreoEnviadaPublisher, reintentoPublisher, mailEnabled, REINTENTO_QUEUE, 3, "x-numero-reintento");
+                notificacionCorreoEnviadaPublisher, eventoDelPedidoAuditoriaPublisher, reintentoPublisher, mailEnabled, REINTENTO_QUEUE, 3, "x-numero-reintento");
     }
 
     private NotificacionCorreo notificacionGuardada() {
