@@ -200,7 +200,7 @@ services:
       ENVIO_DB_URL: jdbc:postgresql://db-envio:5432/envio_db
       ENVIO_DB_USER: "${POSTGRES_USER:-postgres}"
       ENVIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-      MAIL_ENABLED: "${MAIL_ENABLED:-false}"
+      MAIL_ENABLED: "${MAIL_ENABLED:-true}"
       MAIL_HOST: "${MAIL_HOST:-smtp.gmail.com}"
       MAIL_PORT: "${MAIL_PORT:-587}"
       MAIL_USERNAME: "${MAIL_USERNAME:-}"
