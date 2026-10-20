@@ -1,0 +1,16 @@
+<section class="banner-administration page-container">
+  <app-back-button></app-back-button>
+  <h1>Administración del catálogo</h1>
+  <p class="intro">Edita el banner principal que ven todos los visitantes de la tienda.</p>
+
+  <div class="box">
+    <label>Etiqueta<input [(ngModel)]="etiqueta" maxlength="255" /></label>
+    <label>Título<input [(ngModel)]="titulo" maxlength="255" /></label>
+    <label>Subtítulo<textarea [(ngModel)]="subtitulo" maxlength="500" rows="3"></textarea></label>
+  </div>
+
+  @if (error()) { <p class="error" role="alert">{{ error() }}</p> }
+  @if (savedSuccessfully()) { <p class="saved" role="status">Banner actualizado.</p> }
+
+  <button class="save" [disabled]="busy()" (click)="saveCatalogBanner()">{{ busy() ? 'Guardando...' : 'Guardar banner' }}</button>
+</section>

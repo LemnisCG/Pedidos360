@@ -11,6 +11,17 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    # Nodos del clúster en orden de preferencia; si el primero cae, el cliente se reconecta al siguiente.
+    # Sin RABBITMQ_ADDRESSES equivale a host:port, por lo que fuera de Docker nada cambia.
+    addresses: ${RABBITMQ_ADDRESSES:${RABBITMQ_HOST:localhost}:${RABBITMQ_PORT:5672}}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    listener:
+      simple:
+        acknowledge-mode: manual
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
     port: ${MAIL_PORT:587}
@@ -24,3 +35,37 @@ mail:
   from: ${MAIL_FROM:no-reply@pedidos360.local}
 frontend:
   public-url: ${FRONTEND_PUBLIC_URL:http://localhost:4200}
+# Nombres de la mensajería: ningún nombre de exchange, cola o routing key se escribe en el código.
+rabbitmq:
+  exchange:
+    pedidos: pedidos.exchange
+    # Exchange topic con la historia de cada pedido: los consumidores se ligan por patrón (pedido.#).
+    eventos-del-pedido-topic: pedidos.eventos.topic
+  queue:
+    # Caso de uso 1: registrar el envío de cada pago completado.
+    envio: envio.queue
+    envio-reintento: envio.reintento.queue
+    envio-dlq: envio.dlq
+    # Caso de uso 2: enviar el correo de confirmación de cada pago completado.
+    notificacion-correo: notificacion.correo.queue
+    notificacion-correo-reintento: notificacion.correo.reintento.queue
+    notificacion-correo-dlq: notificacion.correo.dlq
+    # Caso de uso 4: guardar el historial de auditoría de cada evento del pedido.
+    auditoria-pedido: auditoria.pedido.queue
+    auditoria-pedido-reintento: auditoria.pedido.reintento.queue
+    auditoria-pedido-dlq: auditoria.pedido.dlq
+  routing-key:
+    pago-completado: pago.completado
+    notificacion-correo-enviada: notificacion.correo.enviada
+    # Routing keys que msvc-envio publica en el exchange topic de eventos del pedido.
+    pedido-envio-registrado: pedido.envio.registrado
+    pedido-correo-enviado: pedido.correo.enviado
+    pedido-correo-omitido: pedido.correo.omitido
+  binding-pattern:
+    # "#" equivale a cero o más palabras: la auditoría recibe cualquier evento que empiece con "pedido.".
+    auditoria-pedido-todos-los-eventos: pedido.#
+  reintento:
+    espera-milisegundos: 10000
+    maximo-reintentos: 3
+    header-numero-reintento: x-numero-reintento
+

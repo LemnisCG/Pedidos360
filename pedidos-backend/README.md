@@ -124,3 +124,80 @@ el flujo para evitar errores por mezclar directorios distintos.
 - **Facebook**: Pedidos360 conserva `state` + `code_verifier` en PostgreSQL para PKCE. Además vincula la identidad externa en `oauth_identities`, por lo que un mismo correo puede utilizar más de un proveedor sin sobrescribir el vínculo anterior.
 - Los callbacks locales esperados son `http://localhost:8080/api/auth/oauth2/callback/<proveedor>`.
 - Para ver el motivo real de un fallo usa `docker compose logs -f msvc-usuario api-gateway`. Los secretos y access tokens se redactan en los mensajes de diagnóstico.
+
+
+## Mensajería con RabbitMQ
+
+Todos los eventos pasan por el exchange direct `pedidos.exchange`. Los nombres de colas, exchanges y
+routing keys están en el `application.yml` de cada servicio, y cada caso de uso tiene su propia clase
+`@Configuration` con sus colas, su cola de reintento y su DLQ.
+
+| Caso de uso | Productor → consumidor | Colas |
+|---|---|---|
+| 1. Registrar el envío | `msvc-pago` → `msvc-envio` (`PagoCompletadoRegistroEnvioListener`) | `envio.queue`, `envio.reintento.queue`, `envio.dlq` |
+| 2. Enviar el correo de confirmación | `msvc-pago` → `msvc-envio` (`PagoCompletadoNotificacionCorreoListener`) | `notificacion.correo.queue`, `notificacion.correo.reintento.queue`, `notificacion.correo.dlq` |
+| 3. Marcar el pedido con el correo enviado | `msvc-envio` → `msvc-pago` (`NotificacionCorreoEnviadaListener`) | `pago.correo-enviado.queue`, `pago.correo-enviado.reintento.queue`, `pago.correo-enviado.dlq` |
+
+Los casos 1 y 2 se ligan con la misma routing key `pago.completado`: cada cola recibe su propia copia del
+evento (publish/subscribe), así un correo que falla se reintenta sin afectar al registro del envío. El caso 3
+usa la routing key `notificacion.correo.enviada`.
+
+#### Caso de uso 4: auditoría del pedido (exchange topic)
+
+El exchange topic `pedidos.eventos.topic` recibe la historia de cada pedido. La cola de auditoría se liga con el
+patrón `pedido.#`, así recibe cualquier evento del pedido sin conocer cada routing key.
+
+| Routing key | Productor | Cuándo |
+|---|---|---|
+| `pedido.pagado` | `msvc-pago` | El pedido quedó guardado en el checkout |
+| `pedido.envio.registrado` | `msvc-envio` | Se registró el envío (caso 1) |
+| `pedido.correo.enviado` / `pedido.correo.omitido` | `msvc-envio` | Salió el correo o se omitió por SMTP deshabilitado (caso 2) |
+
+`EventoDelPedidoAuditoriaListener` (msvc-envio) guarda cada evento en la tabla `eventos_auditoria_pedido` usando
+`auditoria.pedido.queue`, `auditoria.pedido.reintento.queue` y `auditoria.pedido.dlq`, con el mismo manejo de ACK,
+reintentos y DLQ que los otros casos. Publicar la auditoría nunca afecta al checkout ni a los casos 1 y 2: si falla,
+solo queda en logs.
+
+#### Clúster de dos nodos
+
+`docker compose` levanta `rabbitmq` (`rabbit@rabbitmq`) y `rabbitmq-nodo2` (`rabbit@rabbitmq-nodo2`). Comparten
+la Erlang cookie `RABBITMQ_ERLANG_COOKIE` y se descubren con `rabbitmq/conf.d/20-cluster.conf`. `msvc-pago` y
+`msvc-envio` reciben ambos nodos en `RABBITMQ_ADDRESSES` y se reconectan al otro si uno cae. El panel del nodo 2
+está en `http://localhost:15673`.
+
+```bash
+docker compose exec rabbitmq rabbitmqctl cluster_status
+```
+
+Las colas son *classic*: viven en el nodo donde se declararon y no se replican.
+
+```text
+cola principal --(error recuperable)--> cola de reintento --(espera de 10 s)--> cola principal
+cola principal --(error no recuperable o 3 reintentos agotados)--> DLQ --> consumidor que registra en logs
+```
+
+- **ACK manual** en todos los consumidores, con la lógica común en `ConsumidorConReintentosYDeadLetterQueue`.
+- **Errores recuperables**: base de datos que no responde, servidor SMTP caído, aviso que llega antes de que
+  el pedido esté guardado. Se reintentan con espera.
+- **Errores no recuperables**: evento sin datos obligatorios, JSON inválido, credenciales SMTP rechazadas.
+  Van directo a la DLQ.
+- **Consumidores idempotentes**: un mensaje duplicado no crea un segundo envío ni vuelve a enviar el correo.
+- **Confirmaciones del publicador** en `msvc-pago`: si RabbitMQ no confirma `pago.completado` o el evento no
+  llega a ninguna cola, el checkout igual responde (el pago ya se cobró) y el evento queda en logs para
+  reprocesarlo.
+- **Pruebas**: `./mvnw test` en `msvc-envio`, `msvc-pago` y `msvc-rabbitmq-admin`.
+
+### API de administración (`msvc-rabbitmq-admin`, puerto 8090)
+
+| Método | Ruta | Cuerpo o parámetros | Respuesta |
+|---|---|---|---|
+| POST | `/api/admin/queues` | `{"name": "mi.cola"}` | 201 |
+| DELETE | `/api/admin/queues/{name}` | — | 204 |
+| POST | `/api/admin/exchanges` | `{"name": "mi.exchange"}` | 201 |
+| DELETE | `/api/admin/exchanges/{name}` | — | 204 |
+| POST | `/api/admin/bindings` | `{"queueName": "...", "exchangeName": "...", "routingKey": "..."}` | 201 |
+| DELETE | `/api/admin/bindings` | `?queueName=...&exchangeName=...&routingKey=...` | 204 |
+
+Los nombres solo admiten letras, números, punto, guion y guion bajo, con un máximo de 255 caracteres.
+Los datos inválidos responden `400` y los rechazos de RabbitMQ (por ejemplo, un binding hacia una cola
+inexistente) responden `409`, ambos con el formato `{"error": "...", "details": ["..."]}`.

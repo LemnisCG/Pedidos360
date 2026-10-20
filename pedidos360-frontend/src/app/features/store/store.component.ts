@@ -9,5 +9,5 @@ import { Product } from '../../core/models/product.model';
 export class StoreComponent{
  search=signal(''); filtered=computed(()=>{const q=this.search().trim().toLowerCase();return !q?this.products.products():this.products.products().filter(p=>(p.nombre+' '+p.categoria).toLowerCase().includes(q));});
  constructor(public products:ProductService,public auth:AuthService,private router:Router){}
- open(p:Product){if(!this.auth.isLoggedIn()){this.auth.open('login');return;}this.router.navigate(['/game',p.id]);}
+ open(p:Product){if(!this.auth.isLoggedIn()){this.auth.signInWithEntraExternalId();return;}this.router.navigate(['/game',p.id]);}
 }

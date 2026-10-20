@@ -4,6 +4,9 @@
     <nav class="main-nav" aria-label="Navegación principal">
       <a routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact:true}">Tienda</a>
       <a routerLink="/orders" routerLinkActive="active">Mis pedidos</a>
+      @if (auth.hasAdministradorRole()) {
+        <a routerLink="/admin/catalog-banner" routerLinkActive="active">Administración</a>
+      }
     </nav>
     <div class="actions">
       @if (auth.user(); as user) {
@@ -13,13 +16,16 @@
             <div class="status"><strong>Estado:</strong> Sesión Activa <span class="check">✓</span></div>
             <div><strong>Usuario:</strong> {{ user.nombre }} {{ user.apellido }}</div>
             <small>{{ user.email }}</small>
-            <div class="provider"><span>Proveedor</span><b>{{ user.provider }}</b></div>
+            <div class="provider"><span>Roles</span><b>{{ user.roles.length ? user.roles.join(', ') : 'Cliente (sin rol asignado)' }}</b></div>
+            @if (auth.scopesGrantedInAccessToken().length) {
+              <div class="provider"><span>Scopes</span><b>{{ auth.scopesGrantedInAccessToken().join(', ') }}</b></div>
+            }
           </div>
         </details>
         <button class="link-btn" (click)="logout()">Salir</button>
       } @else {
-        <button class="link-btn" (click)="auth.open('login')">Iniciar sesión</button>
-        <button class="signup" (click)="auth.open('register')">Crear cuenta</button>
+        <button class="link-btn" (click)="auth.signInWithEntraExternalId()">Iniciar sesión</button>
+        <button class="signup" (click)="auth.signUpWithEntraExternalId()">Crear cuenta</button>
       }
       <a class="cart" routerLink="/cart" aria-label="Carrito"><span>🛒</span><b>{{ cart.count() }}</b></a>
     </div>

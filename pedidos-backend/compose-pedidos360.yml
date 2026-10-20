@@ -103,6 +103,49 @@ services:
     volumes:
       - envio_data:/var/lib/postgresql/data
 
+  # Broker de mensajería para comunicación asíncrona entre microservicios.
+  # Nodo 1 del clúster (rabbit@rabbitmq). Conserva el nombre de servicio al que ya se conectan los microservicios.
+  rabbitmq:
+    image: rabbitmq:3-management
+    hostname: rabbitmq
+    environment:
+      # Ambos nodos deben compartir la misma Erlang cookie para unirse al clúster.
+      RABBITMQ_ERLANG_COOKIE: "${RABBITMQ_ERLANG_COOKIE:-pedidos360-cookie-del-cluster-rabbitmq}"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      # Se ejecuta como el usuario rabbitmq: como root, el chequeo puede crear .erlang.cookie antes que
+      # el broker y dejarlo sin permiso de lectura, con lo que RabbitMQ no arranca la primera vez.
+      test: ["CMD", "gosu", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+
+  # Nodo 2 del clúster (rabbit@rabbitmq-nodo2). Arranca cuando el nodo 1 está sano y se une a él
+  # con el descubrimiento de 20-cluster.conf; el nodo 1 no lo monta para no quedar esperando al nodo 2.
+  rabbitmq-nodo2:
+    image: rabbitmq:3-management
+    hostname: rabbitmq-nodo2
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "${RABBITMQ_ERLANG_COOKIE:-pedidos360-cookie-del-cluster-rabbitmq}"
+    ports:
+      - "5673:5672"
+      - "15673:15672"
+    healthcheck:
+      test: ["CMD", "gosu", "rabbitmq", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    volumes:
+      - rabbitmq_nodo2_data:/var/lib/rabbitmq
+      - ./rabbitmq/conf.d/20-cluster.conf:/etc/rabbitmq/conf.d/20-cluster.conf:ro
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
   msvc-usuario:
     build:
       context: ./msvc-usuario
@@ -110,26 +153,6 @@ services:
       USUARIO_DB_URL: jdbc:postgresql://db-usuario:5432/usuario_db
       USUARIO_DB_USER: "${POSTGRES_USER:-postgres}"
       USUARIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-      JWT_SECRET: "${JWT_SECRET}"
-      JWT_EXPIRATION_MINUTES: "${JWT_EXPIRATION_MINUTES:-120}"
-      FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
-      GATEWAY_PUBLIC_URL: "${GATEWAY_PUBLIC_URL:-http://localhost:8080}"
-      MICROSOFT_CLIENT_ID: "${MICROSOFT_CLIENT_ID:-}"
-      MICROSOFT_TENANT_ID: "${MICROSOFT_TENANT_ID:-}"
-      MICROSOFT_CLIENT_SECRET: "${MICROSOFT_CLIENT_SECRET:-}"
-      MICROSOFT_AUTH_URL: "${MICROSOFT_AUTH_URL:-}"
-      MICROSOFT_TOKEN_URL: "${MICROSOFT_TOKEN_URL:-}"
-      MICROSOFT_USERINFO_URL: "${MICROSOFT_USERINFO_URL:-https://graph.microsoft.com/oidc/userinfo}"
-      MICROSOFT_SCOPE: "${MICROSOFT_SCOPE:-openid profile email offline_access}"
-      GOOGLE_CLIENT_ID: "${GOOGLE_CLIENT_ID:-}"
-      GOOGLE_CLIENT_SECRET: "${GOOGLE_CLIENT_SECRET:-}"
-      FACEBOOK_CLIENT_ID: "${FACEBOOK_CLIENT_ID:-}"
-      FACEBOOK_CLIENT_SECRET: "${FACEBOOK_CLIENT_SECRET:-}"
-      FACEBOOK_PKCE_ENABLED: "${FACEBOOK_PKCE_ENABLED:-true}"
-      DISCORD_CLIENT_ID: "${DISCORD_CLIENT_ID:-}"
-      DISCORD_CLIENT_SECRET: "${DISCORD_CLIENT_SECRET:-}"
-    ports:
-      - "8081:8081"
     depends_on:
       db-usuario:
         condition: service_healthy
@@ -141,8 +164,6 @@ services:
       PRODUCTO_DB_URL: jdbc:postgresql://db-producto:5432/producto_db
       PRODUCTO_DB_USER: "${POSTGRES_USER:-postgres}"
       PRODUCTO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-    ports:
-      - "8082:8082"
     depends_on:
       db-producto:
         condition: service_healthy
@@ -154,8 +175,6 @@ services:
       CARRITO_DB_URL: jdbc:postgresql://db-carrito:5432/carrito_db
       CARRITO_DB_USER: "${POSTGRES_USER:-postgres}"
       CARRITO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
-    ports:
-      - "8083:8083"
     depends_on:
       db-carrito:
         condition: service_healthy
@@ -168,8 +187,6 @@ services:
       CATALOGO_DB_USER: "${POSTGRES_USER:-postgres}"
       CATALOGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       PRODUCTO_URL: http://msvc-producto:8082
-    ports:
-      - "8084:8084"
     depends_on:
       db-catalogo:
         condition: service_healthy
@@ -190,10 +207,12 @@ services:
       MAIL_PASSWORD: "${MAIL_PASSWORD:-}"
       MAIL_FROM: "${MAIL_FROM:-no-reply@pedidos360.local}"
       FRONTEND_PUBLIC_URL: "${FRONTEND_PUBLIC_URL:-http://localhost:4200}"
-    ports:
-      - "8086:8086"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
       db-envio:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
 
   msvc-pago:
@@ -206,8 +225,8 @@ services:
       PRODUCTO_URL: http://msvc-producto:8082
       CARRITO_URL: http://msvc-carrito:8083
       ENVIO_URL: http://msvc-envio:8086
-    ports:
-      - "8085:8085"
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
       db-pago:
         condition: service_healthy
@@ -217,14 +236,31 @@ services:
         condition: service_started
       msvc-envio:
         condition: service_started
+      rabbitmq:
+        condition: service_healthy
 
-  # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida JWT.
+  # Administración de RabbitMQ vía API REST (colas, exchanges, bindings).
+  msvc-rabbitmq-admin:
+    build:
+      context: ./msvc-rabbitmq-admin
+    environment:
+      RABBITMQ_HOST: rabbitmq
+    ports:
+      - "8090:8090"
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  # Gateway sin base de datos: es deliberadamente stateless y solo enruta/valida el access token de Entra.
+  # Es el único servicio con puerto publicado: los microservicios solo son alcanzables a través de él.
   api-gateway:
     build:
       context: ./api-gateway
     environment:
       GATEWAY_PORT: "8080"
-      JWT_SECRET: "${JWT_SECRET}"
+      ENTRA_EXTERNAL_ID_ISSUER_URI: "${ENTRA_EXTERNAL_ID_ISSUER_URI:-https://92aabe28-d724-4ac3-a20c-45088143bf29.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/v2.0}"
+      ENTRA_EXTERNAL_ID_API_AUDIENCE: "${ENTRA_EXTERNAL_ID_API_AUDIENCE:-6314fdda-9417-40f2-8ebe-9cc6ef7cd4ed}"
+      ENTRA_EXTERNAL_ID_REQUIRED_SCOPE: "${ENTRA_EXTERNAL_ID_REQUIRED_SCOPE:-BFF.Access}"
       FRONTEND_URL: "${FRONTEND_URL:-http://localhost:4200}"
       USUARIO_URL: http://msvc-usuario:8081
       PRODUCTO_URL: http://msvc-producto:8082
@@ -249,3 +285,5 @@ volumes:
   catalogo_data:
   pago_data:
   envio_data:
+  rabbitmq_data:
+  rabbitmq_nodo2_data:
