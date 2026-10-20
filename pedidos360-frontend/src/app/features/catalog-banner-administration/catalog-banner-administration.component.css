@@ -1,0 +1,10 @@
+.banner-administration{padding-top:28px;padding-bottom:45px;max-width:760px}
+.banner-administration h1{font-size:2.2rem;margin:22px 0 6px}
+.intro{color:#667085;margin:0 0 20px}
+.box{border:1px solid #d9dee5;border-radius:9px;padding:20px;margin-bottom:16px;display:flex;flex-direction:column;gap:16px}
+.box label{font-size:.85rem;color:#4b5563;display:flex;flex-direction:column;gap:7px}
+.box input,.box textarea{border:1px solid #d5dbe3;border-radius:7px;padding:11px;font:inherit;resize:vertical}
+.save{width:100%;height:48px;border:0;border-radius:7px;background:#0d6efd;color:#fff;font-weight:850;cursor:pointer}
+.save:disabled{opacity:.55}
+.error{background:#fff1f2;color:#b42318;border:1px solid #fecdd3;border-radius:8px;padding:10px}
+.saved{background:#ecfdf3;color:#067647;border:1px solid #abefc6;border-radius:8px;padding:10px}

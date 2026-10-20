@@ -11,7 +11,44 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  rabbitmq:
+    host: ${RABBITMQ_HOST:localhost}
+    port: ${RABBITMQ_PORT:5672}
+    # Nodos del clúster en orden de preferencia; si el primero cae, el cliente se reconecta al siguiente.
+    # Sin RABBITMQ_ADDRESSES equivale a host:port, por lo que fuera de Docker nada cambia.
+    addresses: ${RABBITMQ_ADDRESSES:${RABBITMQ_HOST:localhost}:${RABBITMQ_PORT:5672}}
+    username: ${RABBITMQ_USER:guest}
+    password: ${RABBITMQ_PASSWORD:guest}
+    # El broker confirma cada publicación y devuelve los mensajes que no llegan a ninguna cola.
+    publisher-confirm-type: correlated
+    publisher-returns: true
+    template:
+      mandatory: true
+    listener:
+      simple:
+        acknowledge-mode: manual
 services:
   producto-url: ${PRODUCTO_URL:http://localhost:8082}
   carrito-url: ${CARRITO_URL:http://localhost:8083}
-  envio-url: ${ENVIO_URL:http://localhost:8086}
+# Nombres de la mensajería: ningún nombre de exchange, cola o routing key se escribe en el código.
+rabbitmq:
+  exchange:
+    pedidos: pedidos.exchange
+    # Exchange topic con la historia de cada pedido; msvc-envio declara la cola de auditoría que lo consume.
+    eventos-del-pedido-topic: pedidos.eventos.topic
+  queue:
+    # Caso de uso 3: marcar el pedido cuando msvc-envio confirma que salió el correo.
+    correo-enviado: pago.correo-enviado.queue
+    correo-enviado-reintento: pago.correo-enviado.reintento.queue
+    correo-enviado-dlq: pago.correo-enviado.dlq
+  routing-key:
+    pago-completado: pago.completado
+    notificacion-correo-enviada: notificacion.correo.enviada
+    # Routing key que msvc-pago publica en el exchange topic de eventos del pedido.
+    pedido-pagado: pedido.pagado
+  publicacion:
+    espera-confirmacion-milisegundos: 5000
+  reintento:
+    espera-milisegundos: 10000
+    maximo-reintentos: 3
+    header-numero-reintento: x-numero-reintento
