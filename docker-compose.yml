@@ -141,14 +141,14 @@ services:
       retries: 10
     volumes:
       - rabbitmq_nodo2_data:/var/lib/rabbitmq
-      - ./rabbitmq/conf.d/20-cluster.conf:/etc/rabbitmq/conf.d/20-cluster.conf:ro
+      - ./pedidos-backend/rabbitmq/conf.d/20-cluster.conf:/etc/rabbitmq/conf.d/20-cluster.conf:ro
     depends_on:
       rabbitmq:
         condition: service_healthy
 
   msvc-usuario:
     build:
-      context: ./msvc-usuario
+      context: ./pedidos-backend/msvc-usuario
     environment:
       USUARIO_DB_URL: jdbc:postgresql://db-usuario:5432/usuario_db
       USUARIO_DB_USER: "${POSTGRES_USER:-postgres}"
@@ -159,7 +159,7 @@ services:
 
   msvc-producto:
     build:
-      context: ./msvc-producto
+      context: ./pedidos-backend/msvc-producto
     environment:
       PRODUCTO_DB_URL: jdbc:postgresql://db-producto:5432/producto_db
       PRODUCTO_DB_USER: "${POSTGRES_USER:-postgres}"
@@ -170,7 +170,7 @@ services:
 
   msvc-carrito:
     build:
-      context: ./msvc-carrito
+      context: ./pedidos-backend/msvc-carrito
     environment:
       CARRITO_DB_URL: jdbc:postgresql://db-carrito:5432/carrito_db
       CARRITO_DB_USER: "${POSTGRES_USER:-postgres}"
@@ -181,13 +181,16 @@ services:
 
   msvc-catalogo:
     build:
-      context: ./msvc-catalogo
+      context: ./pedidos-backend/msvc-catalogo
     environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       CATALOGO_DB_URL: jdbc:postgresql://db-catalogo:5432/catalogo_db
       CATALOGO_DB_USER: "${POSTGRES_USER:-postgres}"
       CATALOGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
       PRODUCTO_URL: http://msvc-producto:8082
     depends_on:
+      kafka-init:
+        condition: service_completed_successfully
       db-catalogo:
         condition: service_healthy
       msvc-producto:
@@ -195,8 +198,9 @@ services:
 
   msvc-envio:
     build:
-      context: ./msvc-envio
+      context: ./pedidos-backend/msvc-envio
     environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       ENVIO_DB_URL: jdbc:postgresql://db-envio:5432/envio_db
       ENVIO_DB_USER: "${POSTGRES_USER:-postgres}"
       ENVIO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
@@ -210,6 +214,8 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
+      kafka-init:
+        condition: service_completed_successfully
       db-envio:
         condition: service_healthy
       rabbitmq:
@@ -217,8 +223,9 @@ services:
 
   msvc-pago:
     build:
-      context: ./msvc-pago
+      context: ./pedidos-backend/msvc-pago
     environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
       PAGO_DB_URL: jdbc:postgresql://db-pago:5432/pago_db
       PAGO_DB_USER: "${POSTGRES_USER:-postgres}"
       PAGO_DB_PASSWORD: "${POSTGRES_PASSWORD:-postgres}"
@@ -228,6 +235,8 @@ services:
       RABBITMQ_HOST: rabbitmq
       RABBITMQ_ADDRESSES: rabbitmq:5672,rabbitmq-nodo2:5672
     depends_on:
+      kafka-init:
+        condition: service_completed_successfully
       db-pago:
         condition: service_healthy
       msvc-producto:
@@ -242,7 +251,7 @@ services:
   # Administración de RabbitMQ vía API REST (colas, exchanges, bindings).
   msvc-rabbitmq-admin:
     build:
-      context: ./msvc-rabbitmq-admin
+      context: ./pedidos-backend/msvc-rabbitmq-admin
     environment:
       RABBITMQ_HOST: rabbitmq
     ports:
@@ -255,7 +264,7 @@ services:
   # Es el único servicio con puerto publicado: los microservicios solo son alcanzables a través de él.
   api-gateway:
     build:
-      context: ./api-gateway
+      context: ./pedidos-backend/api-gateway
     environment:
       GATEWAY_PORT: "8080"
       ENTRA_EXTERNAL_ID_ISSUER_URI: "${ENTRA_EXTERNAL_ID_ISSUER_URI:-https://92aabe28-d724-4ac3-a20c-45088143bf29.ciamlogin.com/92aabe28-d724-4ac3-a20c-45088143bf29/v2.0}"
@@ -278,6 +287,179 @@ services:
       - msvc-pago
       - msvc-envio
 
+
+  frontend:
+    build:
+      context: ./pedidos360-frontend
+    ports:
+      - "4200:80"
+    depends_on:
+      - api-gateway
+
+  zookeeper-1:
+    image: confluentinc/cp-zookeeper:7.7.1
+    environment: &zk-env
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_INIT_LIMIT: 10
+      ZOOKEEPER_SYNC_LIMIT: 5
+      ZOOKEEPER_SERVER_ID: 1
+      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
+    volumes:
+      - zk1_data:/var/lib/zookeeper/data
+      - zk1_log:/var/lib/zookeeper/log
+  zookeeper-2:
+    image: confluentinc/cp-zookeeper:7.7.1
+    environment:
+      <<: *zk-env
+      ZOOKEEPER_SERVER_ID: 2
+    volumes:
+      - zk2_data:/var/lib/zookeeper/data
+      - zk2_log:/var/lib/zookeeper/log
+  zookeeper-3:
+    image: confluentinc/cp-zookeeper:7.7.1
+    environment:
+      <<: *zk-env
+      ZOOKEEPER_SERVER_ID: 3
+    volumes:
+      - zk3_data:/var/lib/zookeeper/data
+      - zk3_log:/var/lib/zookeeper/log
+
+  kafka-1:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-1
+    volumes:
+      - kafka1_data:/var/lib/kafka/data
+
+  kafka-2:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    environment:
+      KAFKA_BROKER_ID: 2
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-2
+    volumes:
+      - kafka2_data:/var/lib/kafka/data
+
+  kafka-3:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      - zookeeper-1
+      - zookeeper-2
+      - zookeeper-3
+    environment:
+      KAFKA_BROKER_ID: 3
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+      KAFKA_JMX_PORT: 9999
+      KAFKA_JMX_HOSTNAME: kafka-3
+    volumes:
+      - kafka3_data:/var/lib/kafka/data
+
+  
+  kafka-init:
+    image: confluentinc/cp-kafka:7.7.1
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+    entrypoint: ["/bin/bash", "/scripts/init-topics.sh"]
+    volumes:
+      - ./pedidos-backend/kafka/init-topics.sh:/scripts/init-topics.sh:ro
+    restart: "on-failure:5"
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    ports:
+      - "8088:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: pedidos360
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.8.0
+    restart: unless-stopped
+    command:
+      - --kafka.server=kafka-1:9092
+      - --kafka.server=kafka-2:9092
+      - --kafka.server=kafka-3:9092
+      - --topic.filter=.*
+      - --group.filter=.*
+    depends_on:
+      - kafka-1
+      - kafka-2
+      - kafka-3
+
+  prometheus:
+    image: prom/prometheus:v2.55.1
+    restart: unless-stopped
+    volumes:
+      - ./pedidos-backend/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    ports:
+      - "9090:9090"
+
+ 
+  grafana:
+    image: grafana/grafana:11.3.1
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-pedidos360}"
+      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-pedidos360}"
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./pedidos-backend/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
+      - ./pedidos-backend/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
+      - ./pedidos-backend/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+
 volumes:
   usuario_data:
   producto_data:
@@ -287,3 +469,14 @@ volumes:
   envio_data:
   rabbitmq_data:
   rabbitmq_nodo2_data:
+  zk1_data:
+  zk1_log:
+  zk2_data:
+  zk2_log:
+  zk3_data:
+  zk3_log:
+  kafka1_data:
+  kafka2_data:
+  kafka3_data:
+  prometheus_data:
+  grafana_data:

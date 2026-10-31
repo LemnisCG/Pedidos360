@@ -1,6 +1,14 @@
 server:
   port: ${CATALOGO_PORT:8084}
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${spring.application.name:pedidos360}-stream
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
   application:
     name: msvc-catalogo
   datasource:
@@ -13,3 +21,9 @@ spring:
     open-in-view: false
 services:
   producto-url: ${PRODUCTO_URL:http://localhost:8082}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus

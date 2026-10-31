@@ -13,6 +13,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.amqp.AmqpConnectException;
 import org.springframework.transaction.CannotCreateTransactionException;
+import cl.duoc.pedidos360.envio.kafka.EnvioKafkaPublisher;
 
 import java.util.List;
 import java.util.Map;
@@ -35,6 +36,9 @@ class PagoCompletadoRegistroEnvioListenerTest {
     private static final String HEADER_REINTENTO = "x-numero-reintento";
 
     @Mock
+    private EnvioKafkaPublisher envioKafkaPublisher;
+
+    @Mock
     private EnvioRepository envioRepository;
     @Mock
     private EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
@@ -47,7 +51,16 @@ class PagoCompletadoRegistroEnvioListenerTest {
 
     @BeforeEach
     void crearListener() {
-        listener = new PagoCompletadoRegistroEnvioListener(envioRepository, eventoDelPedidoAuditoriaPublisher, reintentoPublisher, REINTENTO_QUEUE, 3, HEADER_REINTENTO);
+
+        listener = new PagoCompletadoRegistroEnvioListener(
+                envioRepository,
+                envioKafkaPublisher,
+                eventoDelPedidoAuditoriaPublisher,
+                reintentoPublisher,
+                REINTENTO_QUEUE,
+                3,
+                HEADER_REINTENTO);
+
     }
 
     @Test
@@ -68,7 +81,8 @@ class PagoCompletadoRegistroEnvioListenerTest {
         PagoCompletadoEvent event = eventoValido();
         when(envioRepository.existsByPedidoId(event.pedidoId())).thenReturn(false);
         doThrow(new AmqpConnectException(new RuntimeException("broker caído")))
-                .when(eventoDelPedidoAuditoriaPublisher).publicarEnvioRegistrado(event.pedidoId(), event.numeroPedido());
+                .when(eventoDelPedidoAuditoriaPublisher)
+                .publicarEnvioRegistrado(event.pedidoId(), event.numeroPedido());
 
         listener.onPagoCompletado(event, channel, DELIVERY_TAG, Map.of());
 

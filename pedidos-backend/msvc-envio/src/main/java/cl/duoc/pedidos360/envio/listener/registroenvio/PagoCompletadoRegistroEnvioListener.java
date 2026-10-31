@@ -3,6 +3,7 @@ package cl.duoc.pedidos360.envio.listener.registroenvio;
 import cl.duoc.pedidos360.envio.event.PagoCompletadoEvent;
 import cl.duoc.pedidos360.envio.listener.ConsumidorConReintentosYDeadLetterQueue;
 import cl.duoc.pedidos360.envio.model.Envio;
+import cl.duoc.pedidos360.envio.kafka.EnvioKafkaPublisher;
 import cl.duoc.pedidos360.envio.publisher.EventoDelPedidoAuditoriaPublisher;
 import cl.duoc.pedidos360.envio.publisher.ReintentoDeMensajesPublisher;
 import cl.duoc.pedidos360.envio.repository.EnvioRepository;
@@ -33,10 +34,12 @@ import java.util.Map;
 public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentosYDeadLetterQueue<PagoCompletadoEvent> {
 
     private final EnvioRepository envioRepository;
+    private final EnvioKafkaPublisher envioKafkaPublisher;
     private final EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher;
 
     public PagoCompletadoRegistroEnvioListener(
             EnvioRepository envioRepository,
+            EnvioKafkaPublisher envioKafkaPublisher,
             EventoDelPedidoAuditoriaPublisher eventoDelPedidoAuditoriaPublisher,
             ReintentoDeMensajesPublisher reintentoPublisher,
             @Value("${rabbitmq.queue.envio-reintento}") String reintentoQueueName,
@@ -45,6 +48,7 @@ public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentos
     ) {
         super(reintentoPublisher, reintentoQueueName, maximoReintentos, headerNumeroReintento);
         this.envioRepository = envioRepository;
+        this.envioKafkaPublisher = envioKafkaPublisher;
         this.eventoDelPedidoAuditoriaPublisher = eventoDelPedidoAuditoriaPublisher;
     }
 
@@ -75,7 +79,8 @@ public class PagoCompletadoRegistroEnvioListener extends ConsumidorConReintentos
         envio.setDireccion(event.direccion());
         envio.setEstado("PREPARANDO");
         envio.setEmailEnviado(false);
-        envioRepository.save(envio);
+        envio = envioRepository.save(envio);
+        envioKafkaPublisher.publicarRegistrado(envio);
         auditarEnvioRegistrado(event);
     }
 

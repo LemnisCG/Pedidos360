@@ -1,0 +1,9 @@
+apiVersion: 1
+providers:
+  - name: Pedidos360
+    orgId: 1
+    folder: Pedidos360
+    type: file
+    disableDeletion: false
+    options:
+      path: /var/lib/grafana/dashboards

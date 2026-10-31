@@ -1,6 +1,14 @@
 server:
   port: ${ENVIO_PORT:8086}
 spring:
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      group-id: ${spring.application.name:pedidos360}-stream
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+    listener:
+      ack-mode: record
   application:
     name: msvc-envio
   datasource:
@@ -69,3 +77,9 @@ rabbitmq:
     maximo-reintentos: 3
     header-numero-reintento: x-numero-reintento
 
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
