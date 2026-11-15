@@ -1,1 +1,79 @@
-<section class="details page-container"><app-back-button></app-back-button><h1>Detalle del pedido</h1>@if(order();as o){<div class="summary"><div><h3>Resumen del pedido</h3><span>Número: <b>{{o.numeroPedido}}</b></span><span>Fecha: {{o.creadoEn|date:'dd/MM/yyyy HH:mm'}}</span><span>Estado: <b class="done">{{o.estado}}</b></span></div><div><h3>Método de pago</h3><span>{{o.metodoPago}} •••• {{o.tarjetaUltimos4}}</span><span>{{o.email}}</span></div><div><h3>Monto total</h3><strong>{{o.total|currency:'CLP':'symbol-narrow':'1.0-0':'es-CL'}}</strong></div></div><div class="address"><b>Dirección de envío:</b> {{o.direccion}}</div><div class="items">@for(item of o.items;track item.productoId){<article><img [src]="item.imagenUrl"/><div><h3>{{item.nombre}}</h3><span>Cantidad: <b>{{item.cantidad}}</b></span><span>Precio: {{item.precio|currency:'CLP':'symbol-narrow':'1.0-0':'es-CL'}} c/u</span><span>Código digital: <code>{{item.codigoDigital}}</code></span></div></article>}</div>}</section>
+<section class="details page-container">
+  <app-back-button></app-back-button>
+
+  @if (order(); as o) {
+    <div class="header">
+      <div>
+        <span class="eyebrow">PEDIDOS360 · HISTORIAL</span>
+        <h1>Detalle del pedido</h1>
+        <p>Pedido <strong>{{ o.numeroPedido }}</strong> · {{ o.creadoEn | date:'dd/MM/yyyy HH:mm' }}</p>
+      </div>
+      <span class="state">✓ {{ o.estado }}</span>
+    </div>
+
+    <div class="detail-layout">
+      <div>
+        <div class="panel">
+          <h2>Productos de tu pedido</h2>
+          @for (item of o.items; track item.productoId) {
+            <article class="product">
+              <img [src]="item.imagenUrl" [alt]="item.nombre" />
+              <div>
+                <h3>{{ item.nombre }}</h3>
+                <span>Cantidad: {{ item.cantidad }}</span>
+                <span>Precio unitario: {{ item.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</span>
+                <span class="digital">Código digital: <code>{{ item.codigoDigital }}</code></span>
+              </div>
+              <strong>{{ item.precio * item.cantidad | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+            </article>
+          }
+        </div>
+
+        <div class="panel info">
+          <h2>Datos de la compra</h2>
+          <div>
+            <b>Cliente</b>
+            <span>{{ o.nombreUsuario }}</span>
+          </div>
+          <div>
+            <b>Correo</b>
+            <span>{{ o.email }}</span>
+          </div>
+          <div>
+            <b>Dirección y entrega</b>
+            <span>{{ o.direccion }}</span>
+          </div>
+          <div>
+            <b>Método de pago</b>
+            <span>{{ o.metodoPago }} · •••• {{ o.tarjetaUltimos4 }}</span>
+          </div>
+          <div>
+            <b>Confirmación por correo</b>
+            <span>{{ o.emailEnviado ? 'Enviada' : 'Pendiente' }}</span>
+          </div>
+        </div>
+      </div>
+
+      <aside class="panel summary">
+        <h2>Resumen del pago</h2>
+        <div class="sumrow">
+          <span>Productos</span>
+          <strong>{{ o.total | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+        </div>
+        <div class="sumrow">
+          <span>Entrega</span>
+          <strong>Gratis</strong>
+        </div>
+        <div class="sumrow final">
+          <span>Total</span>
+          <strong>{{ o.total | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+        </div>
+        <a routerLink="/orders">Volver a mis pedidos</a>
+      </aside>
+    </div>
+  } @else if (failed()) {
+    <div class="loading">No fue posible cargar el pedido.</div>
+  } @else {
+    <div class="loading">Cargando pedido…</div>
+  }
+</section>

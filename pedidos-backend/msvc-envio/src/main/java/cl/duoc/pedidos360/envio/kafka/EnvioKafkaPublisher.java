@@ -3,11 +3,13 @@ package cl.duoc.pedidos360.envio.kafka;
 
 import cl.duoc.pedidos360.envio.model.Envio;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.stereotype.Component;
 
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -44,7 +46,8 @@ public class EnvioKafkaPublisher {
 
         Map<String, Object> evento = new LinkedHashMap<>();
 
-        evento.put("eventId", UUID.randomUUID().toString());
+        String eventoId = UUID.randomUUID().toString();
+        evento.put("eventId", eventoId);
         evento.put("eventType", "ENVIO_REGISTRADO");
         evento.put("schemaVersion", 1);
         evento.put("occurredAt", Instant.now().toString());
@@ -57,7 +60,14 @@ public class EnvioKafkaPublisher {
             String mensaje = mapper.writeValueAsString(evento);
             String clave = envio.getPedidoId().toString();
 
-            kafka.send(TOPIC, clave, mensaje)
+            ProducerRecord<String, String> record = new ProducerRecord<>(TOPIC, clave, mensaje);
+            record.headers().add("event-type", "ENVIO_REGISTRADO".getBytes(StandardCharsets.UTF_8));
+            record.headers().add("producer", "msvc-envio".getBytes(StandardCharsets.UTF_8));
+            record.headers().add("content-type", "application/json".getBytes(StandardCharsets.UTF_8));
+            record.headers().add("schema-version", "1".getBytes(StandardCharsets.UTF_8));
+            record.headers().add("event-id", eventoId.getBytes(StandardCharsets.UTF_8));
+
+            kafka.send(record)
                     .whenComplete((resultado, error) -> {
 
                         if (error != null) {

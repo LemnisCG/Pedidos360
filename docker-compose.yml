@@ -296,44 +296,24 @@ services:
     depends_on:
       - api-gateway
 
+  # Un solo ZooKeeper para el entorno académico (modo ZooKeeper; sin KRaft).
+  # Los tres brokers Kafka mantienen su propia replicación y sus volúmenes.
   zookeeper-1:
     image: confluentinc/cp-zookeeper:7.7.1
-    environment: &zk-env
+    environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
-      ZOOKEEPER_INIT_LIMIT: 10
-      ZOOKEEPER_SYNC_LIMIT: 5
-      ZOOKEEPER_SERVER_ID: 1
-      ZOOKEEPER_SERVERS: zookeeper-1:2888:3888;zookeeper-2:2888:3888;zookeeper-3:2888:3888
     volumes:
       - zk1_data:/var/lib/zookeeper/data
       - zk1_log:/var/lib/zookeeper/log
-  zookeeper-2:
-    image: confluentinc/cp-zookeeper:7.7.1
-    environment:
-      <<: *zk-env
-      ZOOKEEPER_SERVER_ID: 2
-    volumes:
-      - zk2_data:/var/lib/zookeeper/data
-      - zk2_log:/var/lib/zookeeper/log
-  zookeeper-3:
-    image: confluentinc/cp-zookeeper:7.7.1
-    environment:
-      <<: *zk-env
-      ZOOKEEPER_SERVER_ID: 3
-    volumes:
-      - zk3_data:/var/lib/zookeeper/data
-      - zk3_log:/var/lib/zookeeper/log
 
   kafka-1:
     image: confluentinc/cp-kafka:7.7.1
     depends_on:
       - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
     environment:
       KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-1:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
@@ -352,11 +332,9 @@ services:
     image: confluentinc/cp-kafka:7.7.1
     depends_on:
       - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
     environment:
       KAFKA_BROKER_ID: 2
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-2:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
@@ -375,11 +353,9 @@ services:
     image: confluentinc/cp-kafka:7.7.1
     depends_on:
       - zookeeper-1
-      - zookeeper-2
-      - zookeeper-3
     environment:
       KAFKA_BROKER_ID: 3
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper-1:2181
       KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka-3:9092
       KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT
@@ -395,13 +371,21 @@ services:
       - kafka3_data:/var/lib/kafka/data
 
   
+  # Trabajo de una sola ejecución: Exited (0) significa inicialización correcta.
+  # No requiere puerto publicado ni debe mantenerse ejecutándose.
   kafka-init:
     image: confluentinc/cp-kafka:7.7.1
     depends_on:
       - kafka-1
       - kafka-2
       - kafka-3
-    entrypoint: ["/bin/bash", "/scripts/init-topics.sh"]
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        tr -d "\r" < /scripts/init-topics.sh > /tmp/init-topics.sh && \
+        chmod +x /tmp/init-topics.sh && \
+        /bin/bash /tmp/init-topics.sh
     volumes:
       - ./pedidos-backend/kafka/init-topics.sh:/scripts/init-topics.sh:ro
     restart: "on-failure:5"
@@ -413,51 +397,10 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: pedidos360
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka-1:9092,kafka-2:9092,kafka-3:9092
-      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper-1:2181,zookeeper-2:2181,zookeeper-3:2181
+      KAFKA_CLUSTERS_0_ZOOKEEPER: zookeeper-1:2181
     depends_on:
-      - kafka-1
-      - kafka-2
-      - kafka-3
-
-  kafka-exporter:
-    image: danielqsj/kafka-exporter:v1.8.0
-    restart: unless-stopped
-    command:
-      - --kafka.server=kafka-1:9092
-      - --kafka.server=kafka-2:9092
-      - --kafka.server=kafka-3:9092
-      - --topic.filter=.*
-      - --group.filter=.*
-    depends_on:
-      - kafka-1
-      - kafka-2
-      - kafka-3
-
-  prometheus:
-    image: prom/prometheus:v2.55.1
-    restart: unless-stopped
-    volumes:
-      - ./pedidos-backend/observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-
- 
-  grafana:
-    image: grafana/grafana:11.3.1
-    restart: unless-stopped
-    ports:
-      - "3000:3000"
-    environment:
-      GF_SECURITY_ADMIN_USER: "${GRAFANA_ADMIN_USER:-pedidos360}"
-      GF_SECURITY_ADMIN_PASSWORD: "${GRAFANA_ADMIN_PASSWORD:-pedidos360}"
-    volumes:
-      - grafana_data:/var/lib/grafana
-      - ./pedidos-backend/observability/grafana/datasources.yml:/etc/grafana/provisioning/datasources/datasources.yml:ro
-      - ./pedidos-backend/observability/grafana/dashboards.yml:/etc/grafana/provisioning/dashboards/dashboards.yml:ro
-      - ./pedidos-backend/observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
-    depends_on:
-      - prometheus
+      kafka-init:
+        condition: service_completed_successfully
 
 
 volumes:
@@ -471,12 +414,6 @@ volumes:
   rabbitmq_nodo2_data:
   zk1_data:
   zk1_log:
-  zk2_data:
-  zk2_log:
-  zk3_data:
-  zk3_log:
   kafka1_data:
   kafka2_data:
   kafka3_data:
-  prometheus_data:
-  grafana_data:
