@@ -10,11 +10,6 @@ import jakarta.persistence.Table;
 import java.time.Instant;
 import java.util.UUID;
 
-/**
- * Registro de la preparación de envío.
- * El resultado del correo se guarda aparte en NotificacionCorreo; emailEnviado se conserva porque la columna
- * ya existe como NOT NULL en las bases desplegadas, y queda en false.
- */
 @Entity
 @Table(name = "envios")
 public class Envio {
@@ -51,35 +46,67 @@ public class Envio {
         return id;
     }
 
+    public UUID getPedidoId() {
+        return pedidoId;
+    }
+
     public void setPedidoId(UUID pedidoId) {
         this.pedidoId = pedidoId;
+    }
+
+    public UUID getUsuarioId() {
+        return usuarioId;
     }
 
     public void setUsuarioId(UUID usuarioId) {
         this.usuarioId = usuarioId;
     }
 
+    public String getNumeroPedido() {
+        return numeroPedido;
+    }
+
     public void setNumeroPedido(String numeroPedido) {
         this.numeroPedido = numeroPedido;
+    }
+
+    public String getEmail() {
+        return email;
     }
 
     public void setEmail(String email) {
         this.email = email;
     }
 
+    public String getDireccion() {
+        return direccion;
+    }
+
     public void setDireccion(String direccion) {
         this.direccion = direccion;
+    }
+
+    public String getEstado() {
+        return estado;
     }
 
     public void setEstado(String estado) {
         this.estado = estado;
     }
 
+    public boolean isEmailEnviado() {
+        return emailEnviado;
+    }
+
     public void setEmailEnviado(boolean emailEnviado) {
         this.emailEnviado = emailEnviado;
     }
 
-    public boolean isEmailEnviado() {
-        return emailEnviado;
+    public Instant getCreadoEn() {
+        return creadoEn;
+    }
+
+    public void setCreadoEn(Instant creadoEn) {
+        this.creadoEn = creadoEn;
     }
 }

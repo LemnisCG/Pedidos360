@@ -37,8 +37,7 @@ Los archivos de infraestructura viven en esta misma carpeta:
 
 ```text
 pedidos360-backend/
-├── .env
-├── .env.example
+(Archivos .env y .env.example ubicados en la raíz Pedidos360/)
 ├── compose-pedidos360.yml
 └── docker-compose.yml
 ```
@@ -86,7 +85,7 @@ Los errores del proveedor quedan registrados sin imprimir access tokens ni clien
 
 ### Microsoft Entra External ID
 
-Microsoft se configura desde `pedidos360-backend/.env`, igual que los demás
+Microsoft se configura desde `Pedidos360/.env`, igual que los demás
 proveedores OAuth:
 
 ```env

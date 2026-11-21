@@ -1,9 +1,66 @@
-.idea/
-*.iml
-out/
-.DS_Store
-Thumbs.db
-*.log
+# Credenciales y configuraciones privadas
 .env
 .env.*
 !.env.example
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+secrets/
+**/secrets/
+
+# Archivos de compilacion Java, Angular y Node
+**/target/
+**/node_modules/
+**/dist/
+**/.angular/
+**/build/
+**/out/
+**/.gradle/
+*.class
+*.jar
+*.war
+
+# Editores, sistemas y temporales
+.vscode/
+**/.vscode/
+.idea/
+**/.idea/
+*.iml
+.DS_Store
+**/.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+*.tmp
+*.bak
+*.log
+logs/
+**/logs/
+
+# Cobertura, cache y reportes de ejecucion
+coverage/
+**/coverage/
+**/.cache/
+**/__pycache__/
+**/.pytest_cache/
+*.pyc
+
+# Datos locales, volumenes y backups
+*.sqlite
+*.sqlite3
+*.db
+*.dump
+*.sql.gz
+backups/
+volumes/
+**/volumes/
+
+# Material de uso local no destinado al repositorio
+PEDIDOS360_GUIA.md
+PRUEBAS_KAFKA.md
