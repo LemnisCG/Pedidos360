@@ -53,8 +53,11 @@ Desde la carpeta raíz `Pedidos360` en **PowerShell**:
 
 ```powershell
 docker compose down --volumes --rmi all --remove-orphans
+docker compose up --build
+
 docker compose up -d
 docker compose ps
+docker compose logs -f --tail=100
 ```
 
 Para detener sin borrar los volúmenes: `docker compose down`. **No uses `down -v`** si necesitas conservar PostgreSQL, RabbitMQ o Kafka. Configura tu `.env` a partir de `.env.example`; no publiques credenciales.
