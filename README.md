@@ -5,7 +5,7 @@
 
 ### Tienda digital de videojuegos · Arquitectura Cloud Native basada en microservicios
 
-**Angular + Spring Boot + PostgreSQL + RabbitMQ + Docker | Microsoft Azure + AWS EC2**
+**Angular + Spring Boot + PostgreSQL + RabbitMQ + Apache Kafka + Docker Compose | Microsoft Azure + AWS EC2**
 
 ### 🎨 Frontend
 
@@ -26,6 +26,8 @@
 ### 🐇 Mensajería, contenedores y nube
 
 ![RabbitMQ](https://img.shields.io/badge/RabbitMQ-AMQP-FF6600?style=for-the-badge&logo=rabbitmq&logoColor=white)
+![Apache Kafka](https://img.shields.io/badge/Apache_Kafka-3_Brokers-231F20?style=for-the-badge&logo=apachekafka&logoColor=white)
+![Kafka UI](https://img.shields.io/badge/Kafka_UI-8088-4F46E5?style=for-the-badge&logo=apachekafka&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=for-the-badge&logo=docker&logoColor=white)
 ![AWS](https://img.shields.io/badge/AWS-EC2-232F3E?style=for-the-badge&logo=amazonwebservices&logoColor=white)
 ![Azure](https://img.shields.io/badge/Microsoft-Azure-0078D4?style=for-the-badge&logo=microsoftazure&logoColor=white)
@@ -37,81 +39,124 @@
 
 ---
 
-## 📖 Descripción del proyecto
+## 📖 Descripción
 
-**Pedidos360** es una aplicación web de comercio electrónico orientada a la venta de videojuegos. Ofrece catálogo, búsqueda, detalle de productos, carrito de compras, checkout con pago simulado, registro de pedidos, historial de compras y notificaciones por correo electrónico.
+**Pedidos360** es una tienda de videojuegos con frontend Angular, API Gateway y microservicios Spring Boot. Se ejecuta con **Docker Compose**, PostgreSQL, **RabbitMQ** (2 nodos) y **Kafka** (3 brokers + 1 ZooKeeper, sin KRaft).
 
-El proyecto utiliza un **frontend SPA en Angular** y un **backend de microservicios en Spring Boot**. La solución incorpora **RabbitMQ** para procesar eventos de compra de forma asíncrona y desacoplar el registro de envíos de las notificaciones. Su arquitectura de despliegue contempla el **frontend en Microsoft Azure** y el **backend en una instancia Amazon EC2 de AWS**.
+- **RabbitMQ:** colas, exchanges `direct`/`topic`, reintentos y DLQ para flujos asíncronos.
+- **Kafka:** eventos de pedidos, pagos y envíos, con productores y grupos consumidores.
+- **Seguridad:** Spring Security, JWT y OAuth 2.0/OIDC; validar integraciones externas en el despliegue correspondiente.
 
+## 🐳 Ejecución
 
+Desde la carpeta raíz `Pedidos360` en **PowerShell**:
 
-El **API Gateway** centraliza el acceso a los servicios de dominio y la validación de tokens. Los microservicios cuentan con bases de datos PostgreSQL independientes y están preparados para su ejecución mediante Docker Compose.
+```powershell
+docker compose down --volumes --rmi all --remove-orphans
+docker compose up --build
 
-## 🧩 Microservicios
-
-| Componente | Puerto local | Responsabilidad |
-|---|---:|---|
-| `api-gateway` | 8080 | Punto de entrada, seguridad, CORS y enrutamiento |
-| `msvc-usuario` | 8081 | Usuarios, registro e identidad |
-| `msvc-producto` | 8082 | Productos, precios y control de stock |
-| `msvc-carrito` | 8083 | Carrito de compras por usuario |
-| `msvc-catalogo` | 8084 | Catálogo y contenido de la tienda |
-| `msvc-pago` | 8085 | Checkout, pagos simulados, pedidos e historial |
-| `msvc-envio` | 8086 | Registro de envíos y notificaciones por correo |
-| `msvc-rabbitmq-admin` | 8090 | Administración de colas, exchanges y bindings mediante API REST |
-
-Los puertos de dominio son internos en Docker Compose; el API Gateway publica el puerto `8080` y el servicio administrativo publica `8090` en la configuración local incluida.
-
-## 🐇 Integración con RabbitMQ
-
-RabbitMQ permite que las operaciones posteriores al pago se procesen **mediante eventos**, sin exigir que el envío de correos finalice antes de responder al checkout.
-
-- **Exchange:** `pedidos.exchange`, de tipo `direct`.
-- **Evento `pago.completado`:** distribuye el evento a la cola de registro del envío y a la cola de notificación de correo.
-- **Evento `notificacion.correo.enviada`:** informa al servicio de pagos que el correo de confirmación fue enviado.
-- **Confiabilidad:** ACK manual, consumidores idempotentes, colas de reintento y **Dead Letter Queues (DLQ)** para mensajes fallidos.
-- **Observabilidad:** RabbitMQ Management permite consultar conexiones, canales, exchanges, colas y mensajes.
-
-| Flujo | Cola principal | Reintento | DLQ |
-|---|---|---|---|
-| Registro de envío | `envio.queue` | `envio.reintento.queue` | `envio.dlq` |
-| Correo de confirmación | `notificacion.correo.queue` | `notificacion.correo.reintento.queue` | `notificacion.correo.dlq` |
-| Confirmación de correo enviado | `pago.correo-enviado.queue` | `pago.correo-enviado.reintento.queue` | `pago.correo-enviado.dlq` |
-
-El procesamiento contempla un reintento diferido de **10 segundos** y derivación a DLQ ante errores no recuperables o cuando se agotan los reintentos configurados.
-
-**RabbitMQ Management (local):** `http://localhost:15672` · **AMQP:** `localhost:5672`.
-
-## 🔐 Autenticación y seguridad
-
-El proyecto incorpora autenticación local y proveedores externos mediante **OAuth 2.0**, además de integración con **Microsoft Entra External ID** y bibliotecas **MSAL** en el frontend. El backend usa **Spring Security**, tokens **JWT** y mecanismos de protección de credenciales. Los secretos de los proveedores se mantienen en las variables de entorno del backend, no en el código Angular.
-
-
-
-## 🚀 Ejecución local
-
-**Requisitos:** Docker con Docker Compose; Node.js compatible con Angular 21 (Node.js `22.12+` o `24.x`) y npm `10+` para ejecutar el frontend por separado.
-
-**1. Configurar el backend** con el archivo `pedidos-backend/.env.example` como referencia, sin publicar contraseñas ni tokens.
-
-**2. Levantar el backend y RabbitMQ:**
-
-```bash
-cd pedidos-backend
-docker compose up --build -d
+docker compose up -d
+docker compose ps
+docker compose logs -f --tail=100
 ```
 
-**3. Levantar el frontend** desde otra terminal:
+Para detener sin borrar los volúmenes: `docker compose down`. **No uses `down -v`** si necesitas conservar PostgreSQL, RabbitMQ o Kafka. Configura tu `.env` a partir de `.env.example`; no publiques credenciales.
 
-```bash
-cd pedidos360-frontend
-npm install
-npm run dev
+| Acceso | URL local |
+|---|---|
+| Frontend Angular | http://localhost:4200 |
+| API Gateway | http://localhost:8080 |
+| Kafka UI | http://localhost:8088 |
+| RabbitMQ Management | http://localhost:15672 |
+
+Los microservicios usan puertos **internos de Docker** y no se exponen directamente por `localhost`.
+
+## 🧩 Arquitectura
+
+```text
+Angular → API Gateway → microservicios Spring Boot → PostgreSQL
+                           ├── RabbitMQ (2 nodos)
+                           └── Kafka (3 brokers, 1 ZooKeeper)
+                                   └── Kafka UI
 ```
 
-**Accesos de desarrollo:** frontend `http://localhost:4200` · API Gateway `http://localhost:8080/health` · RabbitMQ Management `http://localhost:15672`.
+| Componente | Función |
+|---|---|
+| `msvc-usuario`, `msvc-producto`, `msvc-carrito`, `msvc-catalogo` | Usuarios, productos, carrito y catálogo |
+| `msvc-pago`, `msvc-envio` | Pedidos, pago simulado, envío y eventos |
+| `msvc-rabbitmq-admin` | Administración de RabbitMQ |
+| `kafka-init` | Crea/verifica los tópicos y **termina con `Exited (0)`**; no es un servicio caído |
 
-> La ejecución en AWS/Azure requiere configurar por separado red, dominios, HTTPS, variables de entorno, credenciales y conectividad entre frontend y API.
+**`kafka-init` no necesita puerto:** su única tarea es ejecutar `init-topics.sh`. Los brokers Kafka tampoco requieren puertos publicados al host para funcionar dentro de la red Docker.
+
+## 📨 Apache Kafka
+
+| Tópico | Particiones | Factor de réplica | Productor principal |
+|---|---:|---:|---|
+| `pedidos.eventos` | 3 | 3 | `msvc-pago` |
+| `pagos.eventos` | 3 | 3 | `msvc-pago` |
+| `envios.eventos` | 3 | 3 | `msvc-envio` |
+
+**Consumidores existentes:** `catalogo-analitica` (`pedidos.eventos`) y `envio-analitica` (`pagos.eventos`). **Key** identifica el mensaje; **Value** contiene el JSON; **Headers** aporta metadatos de los eventos nuevos. En Kafka UI, **Messages** muestra eventos y **Consumers** muestra grupos, particiones y offsets.
+
+### Comandos de verificación (PowerShell)
+
+```powershell
+# Tópicos
+docker exec pedidos360-kafka-1-1 kafka-topics --bootstrap-server kafka-1:9092 --list
+
+# Particiones, réplicas y líderes
+docker exec pedidos360-kafka-1-1 kafka-topics --bootstrap-server kafka-1:9092 --describe --topic pedidos.eventos
+docker exec pedidos360-kafka-1-1 kafka-topics --bootstrap-server kafka-1:9092 --describe --topic pagos.eventos
+docker exec pedidos360-kafka-1-1 kafka-topics --bootstrap-server kafka-1:9092 --describe --topic envios.eventos
+
+# Grupos de consumidores y lag
+docker exec pedidos360-kafka-1-1 kafka-consumer-groups --bootstrap-server kafka-1:9092 --list
+docker exec pedidos360-kafka-1-1 kafka-consumer-groups --bootstrap-server kafka-1:9092 --describe --group envio-analitica
+docker exec pedidos360-kafka-1-1 kafka-consumer-groups --bootstrap-server kafka-1:9092 --describe --group catalogo-analitica
+```
+
+### Prueba de publicación sin el problema de `>>`
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\kafka-demo.ps1
+```
+
+Este script envía un mensaje con una **Key única** y un **Value JSON** utilizando `docker exec -i` (no `-it`), y cierra la entrada automáticamente. Para consultar el resultado: **Kafka UI → Topics → pedidos.eventos → Messages**, ordenado por mensajes recientes. El evento `PEDIDO_PRUEBA` es solo demostrativo, no una compra real.
+
+Para leer eventos desde consola:
+
+```powershell
+docker exec pedidos360-kafka-1-1 kafka-console-consumer --bootstrap-server kafka-1:9092 --topic pedidos.eventos --from-beginning --max-messages 1 --property print.key=true --property print.partition=true --property print.offset=true
+```
+
+Para ver actividad real del backend:
+
+```powershell
+docker compose logs --tail 100 msvc-pago msvc-envio msvc-catalogo
+```
+
+**Nota:** si la consola muestra `>>`, PowerShell sigue esperando terminar una orden de varias líneas. Usa el script o copia los comandos de **una línea**. Un productor interactivo puede permanecer abierto esperando mensajes; `Ctrl+C` lo finaliza, no implica un fallo de Kafka.
+
+### Statistics de Kafka UI
+
+Muestra cantidad y distribución de mensajes por partición, offsets, fechas y tamaños de Key/Value. **No representa el Consumer Lag**, que se consulta en **Consumers**. Las 59 particiones del clúster incluyen las particiones del tópico interno `__consumer_offsets`; no deben eliminarse.
+
+## ✅ Evidencia EA3
+
+| Criterio | Estado verificado en capturas |
+|---|---|
+| Kafka: 3 brokers | ✅ Operativos |
+| 3 tópicos, 3 particiones y réplica 3 | ✅ Confirmados por CLI |
+| Consumer Groups y offsets | ✅ Grupos visibles, offsets procesados con lag 0 donde hay registros |
+| Eventos Kafka | ✅ Se observan eventos de pedidos y pagos |
+| Producer por consola | ✅ Prueba anterior interrumpida; utilizar `scripts/kafka-demo.ps1` |
+| RabbitMQ 2 nodos | ✅ Contenedores activos; comprobar clustering en RabbitMQ Management |
+| Integración frontend → backend → Kafka | ✅ Validar recorrido completo de compra |
+| API Manager, IDaaS, OAuth/JWT | ✅ Validar en la plataforma cloud |
+| Docker Compose en nube | ✅ Las capturas acreditan ejecución local, no cloud |
+
+**Capturas recomendadas:** Kafka UI (Brokers, Topics, Messages y Consumers), RabbitMQ Management (Cluster/Exchanges/Queues), compra desde frontend y plataforma cloud.
 
 ---
 
@@ -161,8 +206,8 @@ Información final de la compra: estado, método de pago, productos y código di
 
 <div align="center">
 
-**Pedidos360 · Desarrollo Cloud Native I**
+**Pedidos360 · Desarrollo Cloud Native I · RabbitMQ + Apache Kafka**
 
-*Proyecto académico de comercio electrónico con microservicios, mensajería asíncrona y despliegue multicloud.*
+*Proyecto académico de comercio electrónico con microservicios, mensajería asíncrona, contenedores y despliegue multicloud.*
 
 </div>

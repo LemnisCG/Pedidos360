@@ -1,1 +1,330 @@
-<section class="checkout page-container"><app-back-button></app-back-button><h1>Checkout</h1><div class="checkout-grid"><div><h2>Pago</h2><div class="box"><div class="card-label">▣ &nbsp; Tarjeta</div><div class="fields"><label>Número de tarjeta<input [(ngModel)]="numeroTarjeta"/></label><label>Fecha de expiración<input [(ngModel)]="expiracion"/></label><label>Código de seguridad<input [(ngModel)]="codigo"/></label><label>País<select><option>Chile</option></select></label><label>Código postal<input value="8320000"/></label></div></div><div class="box address"><h3>Dirección de envío</h3><label>Dirección completa<input [(ngModel)]="direccion" placeholder="Ej.: Av. Providencia 1234, Depto. 506, Santiago"/></label></div>@if(error()){<p class="error">{{error()}}</p>}<button class="pay" [disabled]="busy()||!cart.lines().length" (click)="pay()">{{busy()?'Procesando pago...':'Realizar pago'}}</button><small class="academic">Demo académica: nunca se almacena el número completo de tarjeta ni el código de seguridad.</small></div><aside><h2>Resumen del pedido</h2>@for(line of cart.lines();track line.producto.id){<div class="summary-line"><img [src]="line.producto.imagenUrl"/><span><b>{{line.producto.nombre}}</b><small>{{line.producto.precio|currency:'CLP':'symbol-narrow':'1.0-0':'es-CL'}} × {{line.cantidad}}</small></span></div>}<div class="total"><span>Total</span><strong>{{cart.total()|currency:'CLP':'symbol-narrow':'1.0-0':'es-CL'}}</strong></div></aside></div></section>
+<section class="checkout page-container">
+  <app-back-button></app-back-button>
+
+  <header class="checkout-heading">
+    <div>
+      <span class="eyebrow">PEDIDOS360 · CHECKOUT</span>
+      <h1>Finalizar compra</h1>
+      <p>Revisa tus datos y confirma tu pedido.</p>
+    </div>
+  </header>
+
+  <div class="checkout-layout">
+    <div class="checkout-main">
+      <section class="panel">
+        <div class="section-heading">
+          <span class="step">1</span>
+          <h2>Información de contacto</h2>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Correo electrónico
+            <input [value]="email" readonly type="email" autocomplete="email" />
+            <small class="helper">Se utilizará el correo de tu cuenta para enviar el comprobante.</small>
+            @if (errors()['email']) {
+              <small class="invalid">{{ errors()['email'] }}</small>
+            }
+          </label>
+
+          <label>
+            Número de teléfono <span class="required">*</span>
+            <input
+              type="tel"
+              [ngModel]="telefono"
+              (ngModelChange)="onPhoneInput($event)"
+              placeholder="9 1234 5678"
+              autocomplete="tel"
+              [class.field-invalid]="errors()['telefono']"
+            />
+            @if (errors()['telefono']) {
+              <small class="invalid">{{ errors()['telefono'] }}</small>
+            }
+          </label>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="novedades" />
+          <span>Quiero recibir novedades y promociones de Pedidos360.</span>
+        </label>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <span class="step">2</span>
+          <h2>Método de entrega</h2>
+        </div>
+
+        <div class="options">
+          <label class="option" [class.selected]="entrega === 'domicilio'">
+            <input type="radio" name="entrega" [(ngModel)]="entrega" value="domicilio" />
+            <span>
+              <b>Envío a domicilio</b>
+              <small>Usaremos la dirección indicada abajo para el despacho.</small>
+            </span>
+          </label>
+
+          <label class="option" [class.selected]="entrega === 'retiro'">
+            <input type="radio" name="entrega" [(ngModel)]="entrega" value="retiro" />
+            <span>
+              <b>Retiro en tienda</b>
+              <small>Retira tu compra directamente en el punto indicado.</small>
+            </span>
+          </label>
+
+          <label class="option" [class.selected]="entrega === 'punto'">
+            <input type="radio" name="entrega" [(ngModel)]="entrega" value="punto" />
+            <span>
+              <b>Retiro en punto de entrega</b>
+              <small>Selecciona el punto de entrega más conveniente.</small>
+            </span>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <span class="step">3</span>
+          <h2>Dirección y destinatario</h2>
+        </div>
+
+        <div class="form-grid">
+          <label>
+            Nombre
+            <input [value]="nombre" readonly />
+          </label>
+
+          <label>
+            Apellidos
+            <input [value]="apellido" readonly />
+          </label>
+
+          <label>
+            Región <span class="required">*</span>
+            <select [(ngModel)]="region" (ngModelChange)="onRegionChange()" [class.field-invalid]="errors()['region']">
+              <option value="">Selecciona...</option>
+              @for (r of regiones; track r) {
+                <option [value]="r">{{ r }}</option>
+              }
+            </select>
+            @if (errors()['region']) {
+              <small class="invalid">{{ errors()['region'] }}</small>
+            }
+          </label>
+
+          <label>
+            Comuna <span class="required">*</span>
+            <select [(ngModel)]="comuna" [class.field-invalid]="errors()['comuna']">
+              <option value="">Selecciona...</option>
+              @for (c of comunasDisponibles; track c) {
+                <option [value]="c">{{ c }}</option>
+              }
+            </select>
+            @if (errors()['comuna']) {
+              <small class="invalid">{{ errors()['comuna'] }}</small>
+            }
+          </label>
+
+          <label>
+            Ciudad <span class="required">*</span>
+            <input [(ngModel)]="ciudad" placeholder="Ej.: Santiago" [class.field-invalid]="errors()['ciudad']" />
+            @if (errors()['ciudad']) {
+              <small class="invalid">{{ errors()['ciudad'] }}</small>
+            }
+          </label>
+
+          <label>
+            Dirección <span class="required">*</span>
+            <input [(ngModel)]="calle" placeholder="Calle y número" [class.field-invalid]="errors()['calle']" />
+            @if (errors()['calle']) {
+              <small class="invalid">{{ errors()['calle'] }}</small>
+            }
+          </label>
+
+          <label class="span-2">
+            Departamento / casa / oficina (opcional)
+            <input [(ngModel)]="complemento" placeholder="Ej.: Depto. 506" />
+          </label>
+
+          <label class="span-2">
+            Instrucciones especiales (opcional)
+            <textarea [(ngModel)]="referencia" rows="3" placeholder="Ej.: llamar antes de entregar"></textarea>
+          </label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <span class="step">4</span>
+          <h2>Facturación</h2>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="mismaFacturacion" />
+          <span>Dirección de facturación igual a la de entrega</span>
+        </label>
+
+        @if (!mismaFacturacion) {
+          <p class="helper">Para esta compra usaremos la misma dirección del destinatario como referencia en el comprobante.</p>
+        }
+
+        <label class="check">
+          <input type="checkbox" [(ngModel)]="factura" />
+          <span>Solicitar factura</span>
+        </label>
+
+        @if (factura) {
+          <label class="rut">
+            RUT <span class="required">*</span>
+            <input [(ngModel)]="rut" placeholder="12.345.678-9" [class.field-invalid]="errors()['rut']" />
+            @if (errors()['rut']) {
+              <small class="invalid">{{ errors()['rut'] }}</small>
+            }
+          </label>
+        }
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <span class="step">5</span>
+          <h2>Método de pago</h2>
+        </div>
+
+        <div class="payment-card">
+          <div class="payment-card__header">
+            <div class="payment-card__title">
+              <span class="selected-dot"></span>
+              <div>
+                <b>Tarjeta</b>
+                <small>Ingresa datos ficticios para confirmar tu pedido.</small>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-grid payment-grid">
+            <label class="span-2">
+              Número de tarjeta <span class="required">*</span>
+              <input
+                [ngModel]="numeroTarjeta"
+                (ngModelChange)="onCardNumberInput($event)"
+                placeholder="Ej.: 1111 2222 3333 4444"
+                inputmode="numeric"
+                autocomplete="off"
+                [class.field-invalid]="errors()['numeroTarjeta']"
+              />
+              @if (errors()['numeroTarjeta']) {
+                <small class="invalid">{{ errors()['numeroTarjeta'] }}</small>
+              }
+            </label>
+
+            <label>
+              Fecha de expiración <span class="required">*</span>
+              <input
+                [ngModel]="expiracion"
+                (ngModelChange)="onExpiryInput($event)"
+                placeholder="MM/AA"
+                inputmode="numeric"
+                autocomplete="off"
+                [class.field-invalid]="errors()['expiracion']"
+              />
+              @if (errors()['expiracion']) {
+                <small class="invalid">{{ errors()['expiracion'] }}</small>
+              }
+            </label>
+
+            <label>
+              Código de seguridad <span class="required">*</span>
+              <input
+                [ngModel]="codigoSeguridad"
+                (ngModelChange)="onSecurityCodeInput($event)"
+                placeholder="123"
+                inputmode="numeric"
+                autocomplete="off"
+                [class.field-invalid]="errors()['codigoSeguridad']"
+              />
+              @if (errors()['codigoSeguridad']) {
+                <small class="invalid">{{ errors()['codigoSeguridad'] }}</small>
+              }
+            </label>
+
+            <label>
+              País <span class="required">*</span>
+              <select [(ngModel)]="pais" [class.field-invalid]="errors()['pais']">
+                <option value="Chile">Chile</option>
+                <option value="Argentina">Argentina</option>
+                <option value="Perú">Perú</option>
+              </select>
+              @if (errors()['pais']) {
+                <small class="invalid">{{ errors()['pais'] }}</small>
+              }
+            </label>
+
+            <label>
+              Código postal <span class="required">*</span>
+              <input
+                [ngModel]="codigoPostal"
+                (ngModelChange)="onPostalCodeInput($event)"
+                placeholder="8320000"
+                inputmode="numeric"
+                [class.field-invalid]="errors()['codigoPostal']"
+              />
+              @if (errors()['codigoPostal']) {
+                <small class="invalid">{{ errors()['codigoPostal'] }}</small>
+              }
+            </label>
+          </div>
+
+          <div class="logos payment-logos">
+            <img src="assets/payments/visa.png" alt="Visa" loading="lazy" />
+            <img src="assets/payments/mastercard.png" alt="Mastercard" loading="lazy" />
+            <img src="assets/payments/amex.png" alt="American Express" loading="lazy" />
+            <img src="assets/payments/magna.png" alt="Magna" loading="lazy" />
+            <img src="assets/payments/mercadopago.png" alt="Mercado Pago" loading="lazy" />
+            <img src="assets/payments/bancoestado.png" alt="BancoEstado" loading="lazy" />
+            <img src="assets/payments/redcompra.png" alt="Redcompra" loading="lazy" />
+            <img src="assets/payments/tenpo.webp" alt="Tenpo" loading="lazy" />
+          </div>
+        </div>
+      </section>
+
+      @if (error()) {
+        <div class="error" role="alert">{{ error() }}</div>
+      }
+    </div>
+
+    <aside class="summary">
+      <h2>Resumen del pedido</h2>
+
+      <div class="items">
+        @for (line of cart.lines(); track line.producto.id) {
+          <div class="item">
+            <img [src]="line.producto.imagenUrl" [alt]="line.producto.nombre" />
+            <div>
+              <b>{{ line.producto.nombre }}</b>
+              <small>{{ line.producto.precio | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }} × {{ line.cantidad }}</small>
+            </div>
+          </div>
+        }
+      </div>
+
+      <div class="summary-rows">
+        <div>
+          <span>Subtotal</span>
+          <strong>{{ cart.total() | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+        </div>
+        <div>
+          <span>Entrega</span>
+          <strong>Gratis</strong>
+        </div>
+        <div class="summary-total">
+          <span>Total</span>
+          <strong>{{ cart.total() | currency:'CLP':'symbol-narrow':'1.0-0':'es-CL' }}</strong>
+        </div>
+      </div>
+
+      <button type="button" class="pay" [disabled]="busy() || !cart.lines().length" (click)="pay()">
+        {{ busy() ? 'Confirmando pedido...' : 'Realizar pedido' }}
+      </button>
+    </aside>
+  </div>
+</section>
